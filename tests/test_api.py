@@ -1,8 +1,3 @@
-import pytest
-
-from tests.fixtures import api
-
-
 def test_get_actions(api):
     df_actions = api.get_actions(7584)
     assert len(df_actions)

@@ -36,6 +36,7 @@ asyncssh = {version = "^2.2.1", optional = true}
 paramiko = {version = "^2.7.1", optional = true}
 understat = "^0.1.2"
 socceraction = "^0.2.1"
+betacal = "^0.2.7"
 
 [tool.poetry.extras]
 dask = ["dask", "dask_ml", "asyncssh", "paramiko"]

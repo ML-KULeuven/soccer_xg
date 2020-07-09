@@ -1,13 +1,9 @@
 """An API wrapper for the SPADL format."""
-import datetime
-import json
 import logging
 import os
 import warnings
 
-import numpy as np
 import pandas as pd
-from pandas.api.types import CategoricalDtype
 
 deduplic = dict(
     games=('game_id', 'game_id'),
@@ -24,7 +20,7 @@ deduplic = dict(
 class DataApi:
     """An objectect that provides easy access to a SPADL event stream dataset.
 
-    Automatically defines an attribute which lazy loads the contents of 
+    Automatically defines an attribute which lazy loads the contents of
     each table in the HDF files and defines a couple of methods to easily execute
     common queries on the SPADL data.
 

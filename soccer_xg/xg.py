@@ -51,6 +51,7 @@ class XGModel(object):
     model_directory : string
         The directory where all models will be saved to or loaded from.
     """
+
     model_directory = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), 'models'
     )
@@ -315,7 +316,9 @@ class XGModel(object):
             if isinstance(source_data, DataApi):
                 if game_ids is None:
                     game_ids = (
-                        source_data.games.index if game_ids is None else game_ids
+                        source_data.games.index
+                        if game_ids is None
+                        else game_ids
                     )
                 source_data = get_features(source_data, game_ids)
 
@@ -333,14 +336,16 @@ class XGModel(object):
             but by no means the best possible model.
         """
         models = [OpenplayXGModel(), FreekickXGModel(), PenaltyXGModel()]
-        self.column_descriptions = {m.__class__.__name__ : m.column_descriptions for m in models}
+        self.column_descriptions = {
+            m.__class__.__name__: m.column_descriptions for m in models
+        }
         return models
 
     def save_model(self, filename=None):
         """Save the XGModel instance to disk.
 
         All models are saved to the same place, with the installed
-        soccer_xg library (given by ``XGModel.model_directory``). 
+        soccer_xg library (given by ``XGModel.model_directory``).
 
         Parameters
         ----------
@@ -368,7 +373,7 @@ class XGModel(object):
         filename : string (default=None):
             The filename to use for the saved model. If this parameter
             is not specified, load the default model. Note that
-            this is a filename only, **not** a full path. 
+            this is a filename only, **not** a full path.
 
         Returns
         -------
@@ -399,8 +404,12 @@ class OpenplayXGModel(XGModel):
                     [s[0] for s in training_seasons]
                 )
             ].index
-            feature_cols = get_features(source_data, game_ids, shotfilter=OpenplayXGModel.filter_shots)
-            target_col = get_labels(source_data, game_ids, shotfilter=OpenplayXGModel.filter_shots)
+            feature_cols = get_features(
+                source_data, game_ids, shotfilter=OpenplayXGModel.filter_shots
+            )
+            target_col = get_labels(
+                source_data, game_ids, shotfilter=OpenplayXGModel.filter_shots
+            )
             self._training_seasons = training_seasons
         else:
             target_col = source_data[target_colname]

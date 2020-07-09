@@ -2,18 +2,16 @@ from __future__ import division
 
 import warnings
 from inspect import signature
-from math import log
 
 import numpy as np
 from betacal import BetaCalibration
-from scipy.optimize import fmin_bfgs
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin, clone
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import check_cv
-from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import LabelBinarizer, label_binarize
 from sklearn.svm import LinearSVC
-from sklearn.utils import check_array, check_X_y, column_or_1d, indexable
+from sklearn.utils import check_X_y, column_or_1d, indexable
 from sklearn.utils.validation import check_is_fitted
 
 
@@ -295,7 +293,7 @@ class _CalibratedClassifier(object):
     method : 'sigmoid' | 'isotonic' | 'beta' | 'beta_am' | 'beta_ab'
         The method to use for calibration. Can be 'sigmoid' which
         corresponds to Platt's method, 'isotonic' which is a
-        non-parameteric approach based on isotonic regression or 'beta', 
+        non-parameteric approach based on isotonic regression or 'beta',
         'beta_am' or 'beta_ab' which correspond to beta calibration methods.
 
     References

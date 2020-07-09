@@ -1,10 +1,7 @@
 import collections
 import os
 
-import pytest
 from soccer_xg import xg
-
-from tests.fixtures import api, model
 
 
 class TestDefaults(object):
@@ -32,7 +29,9 @@ class TestModelValidate(object):
 
     def test_api_input(self, model, api):
         model.train(source_data=api, training_seasons=[('WC', '2018')])
-        model.validate(source_data=api, validation_seasons=[('WC', '2018')], plot=False)
+        model.validate(
+            source_data=api, validation_seasons=[('WC', '2018')], plot=False
+        )
 
     def test_dataframe_input(self, model, api):
         features = xg.get_features(api)

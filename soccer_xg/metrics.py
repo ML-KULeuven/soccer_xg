@@ -7,7 +7,7 @@ from sklearn.neighbors import KernelDensity
 def expected_calibration_error(y_true, y_prob, n_bins=5, strategy='uniform'):
     """Compute the Expected Calibration Error (ECE).
 
-    This method implements equation (3) in [1], as well as the ACE variant in [2]. 
+    This method implements equation (3) in [1], as well as the ACE variant in [2].
     In this equation the probability of the decided label being correct is
     used to estimate the calibration property of the predictor.
 
@@ -31,7 +31,7 @@ def expected_calibration_error(y_true, y_prob, n_bins=5, strategy='uniform'):
         uniform
             The bins have identical widths. This corresponds to the ECE formula.
         quantile
-            The bins have the same number of samples and depend on `y_prob`. This 
+            The bins have the same number of samples and depend on `y_prob`. This
             corresponds to the ACE formula.
 
     Returns
@@ -103,7 +103,7 @@ def _reliability(y_true, y_prob, bins):
 
 
 def bayesian_calibration_curve(y_true, y_pred, n_bins=100):
-    """Compute true and predicted probabilities for a calibration curve using 
+    """Compute true and predicted probabilities for a calibration curve using
     kernel density estimation instead of bins with a fixed width.
 
     Parameters
