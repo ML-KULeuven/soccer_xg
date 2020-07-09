@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "soccer_xg"
-version = "0.0.0"
+version = "0.0.1"
 description = "Train and analyse xG models on soccer event stream data"
 authors = ["Pieter Robberechts <pieter.robberechts@cs.kuleuven.be>"]
 license = "Apache Software License (http://www.apache.org/licenses/LICENSE-2.0)"
