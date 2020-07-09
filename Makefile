@@ -2,14 +2,13 @@
 
 BIN = .venv/bin/
 CODE = soccer_xg
-PYTHON_INTERPRETER = .venv/bin/python
 
 init:
 	python3 -m venv .venv
 	poetry install
 
 tests/data/spadl-statsbomb-WC-2018.h5:
-	$(PYTHON_INTERPRETER) tests/data/download.py
+	$(BIN)python tests/data/download.py
 
 test: tests/data/spadl-statsbomb-WC-2018.h5
 	$(BIN)pytest --verbosity=2 --showlocals --strict --log-level=DEBUG --cov=$(CODE) $(args)
