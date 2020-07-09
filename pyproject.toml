@@ -10,9 +10,9 @@ homepage = "https://pypi.org/project/soccer_xg"
 keywords = ["expected goals", "xG", "Soccer", "Football", "event stream data", "sports analytics", "Statsbomb", "Opta", "Wyscout"]
 classifiers=[
 	"Programming Language :: Python :: 3",
-	"License :: OSI Approved :: Apache Software License"
-	"Operating System :: OS Independent",
-],
+	"License :: OSI Approved :: Apache Software License",
+	"Operating System :: OS Independent"
+]
 
 [tool.poetry.dependencies]
 python = "^3.6.1"
