@@ -15,7 +15,7 @@ leagues = {
     }
 
 free_open_data_remote = 'https://raw.githubusercontent.com/statsbomb/open-data/master/data/'
-spadl_datafolder = '.'
+spadl_datafolder = 'tests/data'
 
 SBL = statsbomb.StatsBombLoader(root=free_open_data_remote, getter='remote')
 

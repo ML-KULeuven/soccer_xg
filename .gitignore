@@ -3,6 +3,8 @@ analysis/
 # exclude all data, but keep the folder
 data/*
 !data/.gitkeep 
+tests/data/*
+!tests/data/download.py
 # exclude all models, unless explicitly allowed
 soccer_xg/models/*
 !soccer_xg/models/openplay_logreg_basic
