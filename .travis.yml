@@ -1,0 +1,27 @@
+language: python
+
+cache: pip
+
+python:
+  - "3.6"
+
+install:
+  - pip install poetry codecov
+  - poetry install
+
+script:
+  - make lint test BIN=""
+
+after_success:
+  - codecov
+
+before_deploy:
+  - poetry build
+
+deploy:
+  provider: script
+  script: poetry publish --no-interaction --username=$PYPI_USER --password=$PYPI_PASS
+  skip_cleanup: true
+  on:
+    branch: master
+    tags: true

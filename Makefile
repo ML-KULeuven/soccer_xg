@@ -1,4 +1,4 @@
-.PHONY: init test lint pretty precommit_install
+.PHONY: init test lint pretty precommit_install bump_major bump_minor bump_patch clean
 
 BIN = .venv/bin/
 CODE = soccer_xg
@@ -29,6 +29,15 @@ pretty:
 precommit_install:
 	echo '#!/bin/sh\nmake test\n' > .git/hooks/pre-commit
 	chmod +x .git/hooks/pre-commit
+
+bump_major:
+	$(BIN)bumpversion major
+
+bump_minor:
+	$(BIN)bumpversion minor
+
+bump_patch:
+	$(BIN)bumpversion patch
 
 clean:
 	find . -type f -name "*.py[co]" -delete
