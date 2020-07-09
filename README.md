@@ -35,7 +35,7 @@ from soccer_xg import XGModel, DataApi
 provider = 'wyscout_opensource'
 leagues = ['ENG', 'ESP', 'ITA', 'GER', 'FRA']
 seasons = ['1718']
-api = DataApi([f"data/wyscout/spadl-{provider}-{l}-{s}.h5" 
+api = DataApi([f"data/{provider}/spadl-{provider}-{l}-{s}.h5" 
         for (l,s) in product(leagues, seasons)])
 # load the default pipeline
 model = XGModel()
