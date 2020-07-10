@@ -22,7 +22,7 @@ In particular, it contains code for experimenting with an exhaustive set of feat
 The recommended way to install `soccer_xg` is to simply use pip:
 
 ```sh
-$ pip install soccer_xg
+$ pip install soccer-xg
 ```
 
 Subsequently, a basic xG model can be trained and applied with the code below:
