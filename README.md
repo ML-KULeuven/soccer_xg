@@ -63,11 +63,11 @@ Note that these models are meant to predict shots from open play. To be able to 
 from soccer_xg import xg
 
 openplay_model = xg.XGModel.load_model(f'openplay_xgboost_advanced') # custom pipeline for open play shots
-openplay_model = xg.PenaltyXGModel() # default pipeline for penalties
+penalty_model = xg.PenaltyXGModel() # default pipeline for penalties
 freekick_model = xg.FreekickXGModel() # default pipeline for free kicks
 
 model = xg.XGModel()
-model.model = [openplay_model, openplay_model, freekick_model]
+model.model = [openplay_model, penalty_model, freekick_model]
 model.train(api, training_seasons=...)
 ```
 
