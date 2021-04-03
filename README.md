@@ -91,6 +91,21 @@ model.train(api, training_seasons=...)
     make bump_minor
     make bump_patch
 
+## Research
+
+If you make use of this package in your research, please use the following citation:
+
+```
+@inproceedings{robberechts2020data,
+  title={How data availability affects the ability to learn good xG models},
+  author={Robberechts, Pieter and Davis, Jesse},
+  booktitle={International Workshop on Machine Learning and Data Mining for Sports Analytics},
+  pages={17--27},
+  year={2020},
+  organization={Springer}
+}
+```
+
 ## License
 
 Copyright (c) DTAI - KU Leuven – All rights reserved.  
