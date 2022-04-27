@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.pipeline import Pipeline
+
 from soccer_xg.ml.preprocessing import simple_proc_for_linear_algoritms
 
 
@@ -81,9 +82,7 @@ def _logreg_gridsearch_model(
             'clf__alpha': np.logspace(-5, 5, 100),
             'clf__class_weight': ['balanced', None],
         }
-        learning_rate_schedule = (
-            'constant' if isinstance(learning_rate, float) else learning_rate
-        )
+        learning_rate_schedule = 'constant' if isinstance(learning_rate, float) else learning_rate
         eta0 = learning_rate if isinstance(learning_rate, float) else 0
         model = SGDClassifier(
             learning_rate=learning_rate_schedule,
@@ -97,9 +96,7 @@ def _logreg_gridsearch_model(
         [
             (
                 'preprocessing',
-                simple_proc_for_linear_algoritms(
-                    numeric_features, categoric_features
-                ),
+                simple_proc_for_linear_algoritms(numeric_features, categoric_features),
             ),
             ('clf', model),
         ]
@@ -108,12 +105,8 @@ def _logreg_gridsearch_model(
     if use_dask:
         from dask_ml.model_selection import RandomizedSearchCV
 
-        return RandomizedSearchCV(
-            pipe, param_space, n_iter=n_iter, scoring=scoring, cv=5
-        )
+        return RandomizedSearchCV(pipe, param_space, n_iter=n_iter, scoring=scoring, cv=5)
     else:
         from sklearn.model_selection import RandomizedSearchCV
 
-        return RandomizedSearchCV(
-            pipe, param_space, n_iter=n_iter, scoring=scoring, cv=5
-        )
+        return RandomizedSearchCV(pipe, param_space, n_iter=n_iter, scoring=scoring, cv=5)

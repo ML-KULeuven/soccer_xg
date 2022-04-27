@@ -4,14 +4,14 @@ import os
 from soccer_xg import xg
 
 
-class TestDefaults(object):
+class TestDefaults:
     """Tests for defaults."""
 
     def test_column_descriptions_set(self, model):
-        assert isinstance(model.column_descriptions, collections.Mapping)
+        assert isinstance(model.column_descriptions, collections.abc.Mapping)
 
 
-class TestModelTrain(object):
+class TestModelTrain:
     """Tests for the train_model method."""
 
     def test_api_input(self, model, api):
@@ -24,14 +24,12 @@ class TestModelTrain(object):
         model.train(source_data=df)
 
 
-class TestModelValidate(object):
+class TestModelValidate:
     """Tests for the validate_model method."""
 
     def test_api_input(self, model, api):
         model.train(source_data=api, training_seasons=[('WC', '2018')])
-        model.validate(
-            source_data=api, validation_seasons=[('WC', '2018')], plot=False
-        )
+        model.validate(source_data=api, validation_seasons=[('WC', '2018')], plot=False)
 
     def test_dataframe_input(self, model, api):
         features = xg.get_features(api)
@@ -41,7 +39,7 @@ class TestModelValidate(object):
         model.validate(source_data=df, plot=False)
 
 
-class TestModelIO(object):
+class TestModelIO:
     """Tests functions that deal with model saving and loading"""
 
     def teardown_method(self, method):

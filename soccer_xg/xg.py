@@ -8,14 +8,15 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, roc_auc_score
 from sklearn.pipeline import make_pipeline
 from sklearn.utils.validation import NotFittedError
+from tqdm import tqdm
+
 from soccer_xg import features as fs
 from soccer_xg import metrics, utils
 from soccer_xg.api import DataApi
 from soccer_xg.ml.preprocessing import simple_proc_for_linear_algoritms
-from tqdm import tqdm
 
 
-class XGModel(object):
+class XGModel:
     """A wrapper around a pipeline for computing xG values.
 
     Parameters
@@ -52,10 +53,8 @@ class XGModel(object):
         The directory where all models will be saved to or loaded from.
     """
 
-    model_directory = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), 'models'
-    )
-    _default_model_filename = 'default_model.xg'
+    model_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+    _default_model_filename = "default_model.xg"
 
     def __init__(self, copy_data=True):
         self.copy_data = copy_data
@@ -93,8 +92,8 @@ class XGModel(object):
     def train(
         self,
         source_data,
-        training_seasons=(('ENG', '1617'), ('ENG', '1718')),
-        target_colname='goal',
+        training_seasons=(("ENG", "1617"), ("ENG", "1718")),
+        target_colname="goal",
     ):
         """Train the model.
 
@@ -139,9 +138,7 @@ class XGModel(object):
             self._training_seasons = []
             if isinstance(source_data, DataApi):
                 game_ids = source_data.games[
-                    source_data.games.season_id.astype(str).isin(
-                        [s[1] for s in training_seasons]
-                    )
+                    source_data.games.season_id.astype(str).isin([s[1] for s in training_seasons])
                     & source_data.games.competition_id.astype(str).isin(
                         [s[0] for s in training_seasons]
                     )
@@ -158,8 +155,8 @@ class XGModel(object):
     def validate(
         self,
         source_data,
-        validation_seasons=(('ENG', '1819')),
-        target_colname='goal',
+        validation_seasons=(("ENG", "1819")),
+        target_colname="goal",
         plot=True,
     ):
         """Validate the model.
@@ -203,13 +200,11 @@ class XGModel(object):
 
         """
         if not self._fitted:
-            raise NotFittedError('Must fit model before validating.')
+            raise NotFittedError("Must fit model before validating.")
 
         if isinstance(source_data, DataApi):
             game_ids = source_data.games[
-                source_data.games.season_id.astype(str).isin(
-                    [s[1] for s in validation_seasons]
-                )
+                source_data.games.season_id.astype(str).isin([s[1] for s in validation_seasons])
                 & source_data.games.competition_id.astype(str).isin(
                     [s[0] for s in validation_seasons]
                 )
@@ -222,16 +217,14 @@ class XGModel(object):
             self._validation_seasons = []
 
         df_predictions = self.estimate(source_data, game_ids)
-        predicted_probabilities = df_predictions['xG']
+        predicted_probabilities = df_predictions["xG"]
         target_col = target_col.loc[df_predictions.index]
 
         (
             self._sample_probabilities,
             self._predicted_goal_percents,
             self._num_shots_used,
-        ) = metrics.bayesian_calibration_curve(
-            target_col.values, predicted_probabilities
-        )
+        ) = metrics.bayesian_calibration_curve(target_col.values, predicted_probabilities)
 
         # Compute the maximal deviation from a perfect prediction as well as the area under the
         # curve of the residual between |predicted - perfect|:
@@ -244,17 +237,18 @@ class XGModel(object):
         roc = roc_auc_score(target_col, predicted_probabilities)
         brier = brier_score_loss(target_col, predicted_probabilities)
         ece = metrics.expected_calibration_error(
-            target_col, predicted_probabilities, 10, 'uniform'
+            target_col, predicted_probabilities, 10, "uniform"
         )
         ace = metrics.expected_calibration_error(
-            target_col, predicted_probabilities, 10, 'quantile'
+            target_col, predicted_probabilities, 10, "quantile"
         )
 
         if plot:
             import matplotlib.pyplot as plt
+
             from soccer_xg.visualisation import (
-                plot_roc_curve,
                 plot_calibration_curve,
+                plot_roc_curve,
             )
 
             fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -267,13 +261,13 @@ class XGModel(object):
             )
 
         return {
-            'max_dev': max_deviation,
-            'residual_area': residual_area,
-            'roc': roc,
-            'brier': brier,
-            'ece': ece,
-            'ace': ace,
-            'fig': fig if plot else None,
+            "max_dev": max_deviation,
+            "residual_area": residual_area,
+            "roc": roc,
+            "brier": brier,
+            "ece": ece,
+            "ace": ace,
+            "fig": fig if plot else None,
         }
 
     def estimate(self, source_data, game_ids=None):
@@ -305,7 +299,7 @@ class XGModel(object):
             If the model hasn't been fit.
         """
         if not self._fitted:
-            raise NotFittedError('Must fit model before predicting WP.')
+            raise NotFittedError("Must fit model before predicting WP.")
 
         if isinstance(self.model, list):
             xg = []
@@ -315,15 +309,11 @@ class XGModel(object):
         else:
             if isinstance(source_data, DataApi):
                 if game_ids is None:
-                    game_ids = (
-                        source_data.games.index
-                        if game_ids is None
-                        else game_ids
-                    )
+                    game_ids = source_data.games.index if game_ids is None else game_ids
                 source_data = get_features(source_data, game_ids)
 
             xg = pd.DataFrame(index=source_data.index)
-            xg['xG'] = self.model.predict_proba(source_data)[:, 1]
+            xg["xG"] = self.model.predict_proba(source_data)[:, 1]
             return xg
 
     def create_default_pipeline(self):
@@ -336,9 +326,7 @@ class XGModel(object):
             but by no means the best possible model.
         """
         models = [OpenplayXGModel(), FreekickXGModel(), PenaltyXGModel()]
-        self.column_descriptions = {
-            m.__class__.__name__: m.column_descriptions for m in models
-        }
+        self.column_descriptions = {m.__class__.__name__: m.column_descriptions for m in models}
         return models
 
     def save_model(self, filename=None):
@@ -386,20 +374,18 @@ class XGModel(object):
 
 
 class OpenplayXGModel(XGModel):
-    _default_model_filename = 'default_openplay_model.xg'
+    _default_model_filename = "default_openplay_model.xg"
 
     def train(
         self,
         source_data,
-        training_seasons=(('ENG', '1617'), ('ENG', '1718')),
-        target_colname='goal',
+        training_seasons=(("ENG", "1617"), ("ENG", "1718")),
+        target_colname="goal",
     ):
         self._training_seasons = []
         if isinstance(source_data, DataApi):
             game_ids = source_data.games[
-                source_data.games.season_id.astype(str).isin(
-                    [s[1] for s in training_seasons]
-                )
+                source_data.games.season_id.astype(str).isin([s[1] for s in training_seasons])
                 & source_data.games.competition_id.astype(str).isin(
                     [s[0] for s in training_seasons]
                 )
@@ -407,9 +393,7 @@ class OpenplayXGModel(XGModel):
             feature_cols = get_features(
                 source_data, game_ids, shotfilter=OpenplayXGModel.filter_shots
             )
-            target_col = get_labels(
-                source_data, game_ids, shotfilter=OpenplayXGModel.filter_shots
-            )
+            target_col = get_labels(source_data, game_ids, shotfilter=OpenplayXGModel.filter_shots)
             self._training_seasons = training_seasons
         else:
             target_col = source_data[target_colname]
@@ -418,49 +402,44 @@ class OpenplayXGModel(XGModel):
         self._fitted = True
 
     def estimate(self, source_data, game_ids=None):
-
         if isinstance(source_data, DataApi):
-            game_ids = (
-                source_data.games.index if game_ids is None else game_ids
-            )
+            game_ids = source_data.games.index if game_ids is None else game_ids
             source_data = get_features(
                 source_data, game_ids, shotfilter=OpenplayXGModel.filter_shots
             )
 
         xg = pd.DataFrame(index=source_data.index)
-        xg['xG'] = self.model.predict_proba(source_data)[:, 1]
+        xg["xG"] = self.model.predict_proba(source_data)[:, 1]
         return xg
 
     def create_default_pipeline(self):
-        bodypart_colname = 'bodypart_id_a0'
-        dist_to_goal_colname = 'start_dist_to_goal_a0'
-        angle_to_goal_colname = 'start_angle_to_goal_a0'
+        bodypart_colname = "bodypart_id_a0"
+        dist_to_goal_colname = "start_dist_to_goal_a0"
+        angle_to_goal_colname = "start_angle_to_goal_a0"
 
         self.column_descriptions = {
-            bodypart_colname: 'Bodypart used for the shot (head, foot or other)',
-            dist_to_goal_colname: 'Distance to goal',
-            angle_to_goal_colname: 'Angle to goal',
+            bodypart_colname: "Bodypart used for the shot (head, foot or other)",
+            dist_to_goal_colname: "Distance to goal",
+            angle_to_goal_colname: "Angle to goal",
         }
 
         preprocess_pipeline = simple_proc_for_linear_algoritms(
             [dist_to_goal_colname, angle_to_goal_colname], [bodypart_colname]
         )
-        base_model = LogisticRegression(
-            max_iter=10000, solver='lbfgs', fit_intercept=False
-        )
+        base_model = LogisticRegression(max_iter=10000, solver="lbfgs", fit_intercept=False)
         pipe = make_pipeline(preprocess_pipeline, base_model)
         return pipe
 
     @staticmethod
     def filter_shots(df_actions):
-        shot_idx = (
-            df_actions.type_name == 'shot'
-        ) & df_actions.result_name.isin(['fail', 'success'])
+        shot_idx = (df_actions.type_name == "shot") & df_actions.result_name.isin(
+            ["fail", "success"]
+        )
         return shot_idx
 
 
 class PenaltyXGModel(XGModel):
-    _default_model_filename = 'default_penalty_model.xg'
+    _default_model_filename = "default_penalty_model.xg"
 
     def __init__(self, copy_data=True):
         super().__init__(copy_data)
@@ -469,17 +448,14 @@ class PenaltyXGModel(XGModel):
     def train(
         self,
         source_data,
-        training_seasons=(('ENG', '1617'), ('ENG', '1718')),
-        target_colname='goal',
+        training_seasons=(("ENG", "1617"), ("ENG", "1718")),
+        target_colname="goal",
     ):
         pass
 
     def estimate(self, source_data, game_ids=None):
-
         if isinstance(source_data, DataApi):
-            game_ids = (
-                source_data.games.index if game_ids is None else game_ids
-            )
+            game_ids = source_data.games.index if game_ids is None else game_ids
             source_data = get_features(
                 source_data,
                 game_ids,
@@ -488,7 +464,7 @@ class PenaltyXGModel(XGModel):
             )
 
         xg = pd.DataFrame(index=source_data.index)
-        xg['xG'] = 0.792453
+        xg["xG"] = 0.792453
 
         return xg
 
@@ -497,26 +473,23 @@ class PenaltyXGModel(XGModel):
 
     @staticmethod
     def filter_shots(df_actions):
-        shot_idx = df_actions.type_name == 'shot_penalty'
+        shot_idx = df_actions.type_name == "shot_penalty"
         return shot_idx
 
 
 class FreekickXGModel(XGModel):
-
-    _default_model_filename = 'default_freekick_model.xg'
+    _default_model_filename = "default_freekick_model.xg"
 
     def train(
         self,
         source_data,
-        training_seasons=(('ENG', '1617'), ('ENG', '1718')),
-        target_colname='goal',
+        training_seasons=(("ENG", "1617"), ("ENG", "1718")),
+        target_colname="goal",
     ):
         self._training_seasons = []
         if isinstance(source_data, DataApi):
             game_ids = source_data.games[
-                source_data.games.season_id.astype(str).isin(
-                    [s[1] for s in training_seasons]
-                )
+                source_data.games.season_id.astype(str).isin([s[1] for s in training_seasons])
                 & source_data.games.competition_id.astype(str).isin(
                     [s[0] for s in training_seasons]
                 )
@@ -524,9 +497,7 @@ class FreekickXGModel(XGModel):
             feature_cols = get_features(
                 source_data, game_ids, shotfilter=FreekickXGModel.filter_shots
             )
-            target_col = get_labels(
-                source_data, game_ids, shotfilter=FreekickXGModel.filter_shots
-            )
+            target_col = get_labels(source_data, game_ids, shotfilter=FreekickXGModel.filter_shots)
             self._training_seasons = training_seasons
         else:
             target_col = source_data[target_colname]
@@ -535,40 +506,35 @@ class FreekickXGModel(XGModel):
         self._fitted = True
 
     def estimate(self, source_data, game_ids=None):
-
         if isinstance(source_data, DataApi):
-            game_ids = (
-                source_data.games.index if game_ids is None else game_ids
-            )
+            game_ids = source_data.games.index if game_ids is None else game_ids
             source_data = get_features(
                 source_data, game_ids, shotfilter=FreekickXGModel.filter_shots
             )
 
         xg = pd.DataFrame(index=source_data.index)
-        xg['xG'] = self.model.predict_proba(source_data)[:, 1]
+        xg["xG"] = self.model.predict_proba(source_data)[:, 1]
         return xg
 
     def create_default_pipeline(self):
-        dist_to_goal_colname = 'start_dist_to_goal_a0'
-        angle_to_goal_colname = 'start_angle_to_goal_a0'
+        dist_to_goal_colname = "start_dist_to_goal_a0"
+        angle_to_goal_colname = "start_angle_to_goal_a0"
 
         self.column_descriptions = {
-            dist_to_goal_colname: 'Distance to goal',
-            angle_to_goal_colname: 'Angle to goal',
+            dist_to_goal_colname: "Distance to goal",
+            angle_to_goal_colname: "Angle to goal",
         }
 
         preprocess_pipeline = simple_proc_for_linear_algoritms(
             [dist_to_goal_colname, angle_to_goal_colname], []
         )
-        base_model = LogisticRegression(
-            max_iter=10000, solver='lbfgs', fit_intercept=True
-        )
+        base_model = LogisticRegression(max_iter=10000, solver="lbfgs", fit_intercept=True)
         pipe = make_pipeline(preprocess_pipeline, base_model)
         return pipe
 
     @staticmethod
     def filter_shots(df_actions):
-        shot_idx = df_actions.type_name == 'shot_freekick'
+        shot_idx = df_actions.type_name == "shot_freekick"
         return shot_idx
 
 
@@ -581,18 +547,17 @@ def get_features(
 ):
     game_ids = api.games.index if game_ids is None else game_ids
     X = {}
-    for game_id in tqdm(game_ids, desc=f'Generating features'):
+    for game_id in tqdm(game_ids, desc=f"Generating features"):
         # try:
         game = api.games.loc[game_id]
         game_actions = utils.enhance_actions(api.get_actions(game_id))
-        X[game_id] = _compute_features_game(
-            game, game_actions, xfns, shotfilter, nb_prev_actions
-        )
-        X[game_id].index.name = 'action_id'
-        X[game_id]['game_id'] = game_id
+        game_events = api.get_events(game_id)
+        X[game_id] = _compute_features_game(game, game_actions, xfns, shotfilter, nb_prev_actions)
+        X[game_id].index.name = "action_id"
+        X[game_id]["game_id"] = game_id
         # except Exception as e:
         # print(f"Failed for game with id={game_id}: {e}")
-    X = pd.concat(X.values()).reset_index().set_index(['game_id', 'action_id'])
+    X = pd.concat(X.values()).reset_index().set_index(["game_id", "action_id"])
     # remove post-shot features (these will all have a single unique value)
     f = X.columns[X.nunique() > 1]
     return X[f]
@@ -604,8 +569,8 @@ def _compute_features_game(
     if shotfilter is None:
         # filter shots and ignore own goals
         shot_idx = actions.type_name.isin(
-            ['shot', 'shot_penalty', 'shot_freekick']
-        ) & actions.result_name.isin(['fail', 'success'])
+            ["shot", "shot_penalty", "shot_freekick"]
+        ) & actions.result_name.isin(["fail", "success"])
     else:
         shot_idx = shotfilter(actions)
     if shot_idx.sum() < 1:
@@ -614,30 +579,31 @@ def _compute_features_game(
         return pd.DataFrame(index=actions.index.values[shot_idx])
     # convert actions to gamestates
     gamestates = [
-        states.loc[shot_idx].copy()
-        for states in fs.gamestates(actions, nb_prev_actions)
+        states.loc[shot_idx].copy() for states in fs.gamestates(actions, nb_prev_actions)
     ]
     gamestates = fs.play_left_to_right(gamestates, game.home_team_id)
     # remove post-shot attributes
-    gamestates[0].loc[shot_idx, 'end_x'] = float('NaN')
-    gamestates[0].loc[shot_idx, 'end_y'] = float('NaN')
-    gamestates[0].loc[shot_idx, 'result_id'] = float('NaN')
+    gamestates[0].loc[shot_idx, "end_x"] = float("NaN")
+    gamestates[0].loc[shot_idx, "end_y"] = float("NaN")
+    gamestates[0].loc[shot_idx, "result_id"] = float("NaN")
     # compute features
-    X = pd.concat([fn(gamestates) for fn in xfns], axis=1)
+    X = pd.concat([fn(gamestates).reset_index(drop=True) for fn in xfns], axis=1).set_index(
+        actions.loc[shot_idx].index
+    )
     # fix data types
-    for c in [c for c in X.columns.values if c.startswith('type_id')]:
+    for c in [c for c in X.columns.values if c.startswith("type_id")]:
         X[c] = pd.Categorical(
             X[c].replace(spadlcfg.actiontypes_df().type_name.to_dict()),
             categories=spadlcfg.actiontypes,
             ordered=False,
         )
-    for c in [c for c in X.columns.values if c.startswith('result_id')]:
+    for c in [c for c in X.columns.values if c.startswith("result_id")]:
         X[c] = pd.Categorical(
             X[c].replace(spadlcfg.results_df().result_name.to_dict()),
             categories=spadlcfg.results,
             ordered=False,
         )
-    for c in [c for c in X.columns.values if c.startswith('bodypart_id')]:
+    for c in [c for c in X.columns.values if c.startswith("bodypart_id")]:
         X[c] = pd.Categorical(
             X[c].replace(spadlcfg.bodyparts_df().bodypart_name.to_dict()),
             categories=spadlcfg.bodyparts,
@@ -649,30 +615,26 @@ def _compute_features_game(
 def get_labels(api, game_ids=None, shotfilter=None):
     game_ids = api.games.index if game_ids is None else game_ids
     y = {}
-    for game_id in tqdm(game_ids, desc=f'Generating labels'):
+    for game_id in tqdm(game_ids, desc=f"Generating labels"):
         try:
             game = api.games.loc[game_id]
             game_actions = utils.enhance_actions(api.get_actions(game_id))
             y[game_id] = _compute_labels_game(game, game_actions, shotfilter)
-            y[game_id].index.name = 'action_id'
-            y[game_id]['game_id'] = game_id
+            y[game_id].index.name = "action_id"
+            y[game_id]["game_id"] = game_id
         except Exception as e:
             print(e)
-    return (
-        pd.concat(y.values())
-        .reset_index()
-        .set_index(['game_id', 'action_id'])['goal']
-    )
+    return pd.concat(y.values()).reset_index().set_index(["game_id", "action_id"])["goal"]
 
 
 def _compute_labels_game(game, actions, shotfilter=None):
     # compute labels
-    y = actions['result_name'] == 'success'
+    y = actions["result_name"] == "success"
     if shotfilter is None:
         # filter shots and ignore own goals
         shot_idx = actions.type_name.isin(
-            ['shot', 'shot_penalty', 'shot_freekick']
-        ) & actions.result_name.isin(['fail', 'success'])
+            ["shot", "shot_penalty", "shot_freekick"]
+        ) & actions.result_name.isin(["fail", "success"])
     else:
         shot_idx = shotfilter(actions)
-    return y.loc[shot_idx].to_frame('goal')
+    return y.loc[shot_idx].to_frame("goal")

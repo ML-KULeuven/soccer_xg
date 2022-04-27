@@ -6,17 +6,14 @@ from sklearn.preprocessing import OneHotEncoder
 # class for the tree-based/logistic regression pipeline
 # see: https://gdmarmerola.github.io/probability-calibration/
 class TreeBasedLR(BaseEstimator, ClassifierMixin):
-
     # initialization
     def __init__(self, forest, lr):
-
         # configuring the models
         self.forest = forest
         self.lr = lr
 
     # method for fitting the model
     def fit(self, X, y, sample_weight=None, fit_params={}):
-
         self.classes_ = np.unique(y)
 
         # first, we fit our tree-based model on the dataset
@@ -39,7 +36,6 @@ class TreeBasedLR(BaseEstimator, ClassifierMixin):
 
     # method for predicting probabilities
     def predict_proba(self, X):
-
         # then, we apply the model to the data in order to get the leave indexes
         # if self.forest_model == 'cat':
         # leaves = self.forest.calc_leaf_indexes(X)

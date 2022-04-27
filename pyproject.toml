@@ -2,12 +2,18 @@
 name = "soccer_xg"
 version = "0.0.1"
 description = "Train and analyse xG models on soccer event stream data"
-authors = ["Pieter Robberechts <pieter.robberechts@cs.kuleuven.be>"]
+authors = ["Pieter Robberechts <pieter.robberechts@kuleuven.be>"]
 license = "Apache Software License (http://www.apache.org/licenses/LICENSE-2.0)"
 readme = 'README.md'
-repository = "https://github.com/probberechts/soccer_xg"
+repository = "https://github.com/ML-KULeuven/soccer_xg"
 homepage = "https://pypi.org/project/soccer_xg"
-keywords = ["expected goals", "xG", "Soccer", "Football", "event stream data", "sports analytics", "Statsbomb", "Opta", "Wyscout"]
+keywords = [
+  "expected goals", "xG",
+  "soccer", "football",
+  "event stream data",
+  "sports analytics",
+  "Statsbomb", "Opta", "Wyscout"
+]
 classifiers=[
 	"Programming Language :: Python :: 3",
 	"License :: OSI Approved :: Apache Software License",
@@ -15,42 +21,73 @@ classifiers=[
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6.1"
-numpy = "^1.18"
-pandas = "^1.0"
-scikit-learn = "^0.22.1"
-ipykernel = "^5.1"
-matplotsoccer = "^0.0.8"
-matplotlib = "^3.1"
-click = "^7.0"
-tables = "^3.6"
-requests = "^2.23"
-xgboost = "^1.0"
-seaborn = "^0.10.0"
-fuzzywuzzy = "^0.18.0"
-python-Levenshtein = "^0.12.0"
-dask = {extras = ["array","distributed","dataframe"], version = "^2.15.0", optional = true}
-dask_ml = {version = "^1.3.0", optional = true}
-category_encoders = "^2.2.2"
-asyncssh = {version = "^2.2.1", optional = true}
-paramiko = {version = "^2.7.1", optional = true}
-understat = "^0.1.2"
-socceraction = "^0.2.1"
-betacal = "^0.2.7"
+python = ">=3.8.1,<4.0.0"
+socceraction = "^1.4.0"
+tqdm = "^4.65.0"
+fuzzywuzzy = {version = "^0.18.0", extras = ["speedup"]}
+numpy = "^1.24.2"
+pandas = "^1.5.3"
+scikit-learn = "^1.2.2"
+betacal = "^1.1.0"
+xgboost = "^1.7.4"
+# dask = {version = "^2022.4.1", extras = ["array,distributed,dataframe"], optional = true}
+# dask-ml = {version = "^2022.1.22", optional = true}
+# asyncssh = {version = "^2.10.1", optional = true}
+# paramiko = {version = "^2.10.4", optional = true}
 
 [tool.poetry.extras]
-dask = ["dask", "dask_ml", "asyncssh", "paramiko"]
+# dask = ["dask", "dask_ml", "asyncssh", "paramiko"]
 
-[tool.poetry.dev-dependencies]
-flake8-awesome = "^1.2"
-mypy = "^0.761.0"
-pylint = "^2.4"
-pytest = "^5.3"
-pytest-cov = "^2.8"
-pytest-deadfixtures = "^2.1"
-unify = "^0.5.0"
-black = {version = "^19.10b0", allow-prereleases = true}
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.2"
+black = "^23.1.0"
+pre-commit = "^3.2.0"
+isort = "^5.12.0"
+mypy = "^1.1.1"
+flake8 = "^6.0.0"
+coverage = {version = "^7.2.2", extras = ["toml"]}
 bumpversion = "^0.6.0"
+unify = "^0.5"
+
+[tool.isort]
+profile = "black"
+src_paths = ["soccer_xg", "tests"]
+balanced_wrapping = true
+default_section = "THIRDPARTY"
+include_trailing_comma = true
+known_first_party = ["soccer_xg", "tests"]
+line_length = 79
+multi_line_output = 3
+
+[tool.black]
+line-length = 99
+target-version = ['py38']
+skip-string-normalization = 1
+include = '\.pyi?$'
+
+[tool.coverage.paths]
+source = ["soccer_xg", "*/site-packages"]
+
+[tool.coverage.run]
+branch = true
+source = ["soccer_xg"]
+
+[tool.coverage.report]
+show_missing = true
+ignore_errors = true
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+show_error_codes = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
 
 [build-system]
 requires = ["poetry>=0.12"]

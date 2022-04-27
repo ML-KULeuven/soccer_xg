@@ -4,6 +4,7 @@ import numpy as np
 import numpy.ma as ma
 from matplotlib.ticker import MultipleLocator
 from sklearn.metrics import auc, roc_curve
+
 from soccer_xg import metrics
 
 
@@ -71,12 +72,8 @@ def plot_calibration_curve(
         predicted_pos_percents = ma.array(predicted_pos_percents)
         predicted_pos_percents[num_plays_used < min_samples] = ma.masked
 
-    max_deviation = metrics.max_deviation(
-        sample_probabilities, predicted_pos_percents
-    )
-    residual_area = metrics.residual_area(
-        sample_probabilities, predicted_pos_percents
-    )
+    max_deviation = metrics.max_deviation(sample_probabilities, predicted_pos_percents)
+    residual_area = metrics.residual_area(sample_probabilities, predicted_pos_percents)
 
     axis.plot(
         sample_probabilities,
@@ -105,16 +102,13 @@ def plot_calibration_curve(
 
 
 def plot_roc_curve(y_true, y_prob, name='Calibration curve', axis=None):
-
     fpr, tpr, _ = roc_curve(y_true, y_prob)
     roc_auc = auc(fpr, tpr)
 
     if axis is None:
         axis = plt.figure(figsize=(5, 5)).add_subplot(111)
 
-    axis.plot(
-        fpr, tpr, linewidth=1, label='ROC curve (area = %0.2f)' % roc_auc
-    )
+    axis.plot(fpr, tpr, linewidth=1, label='ROC curve (area = %0.2f)' % roc_auc)
 
     # reference line, legends, and axis labels
     axis.plot([0, 1], [0, 1], linestyle='--', color='gray')
@@ -139,15 +133,12 @@ def plot_roc_curve(y_true, y_prob, name='Calibration curve', axis=None):
 
 
 def plot_heatmap(model, data, axis=None):
-
     if axis is None:
         axis = plt.figure(figsize=(8, 10)).add_subplot(111)
 
     z = model.estimate(data)['xG'].values
     axis = mps.field(ax=axis, show=False)
-    axis = mps.heatmap(
-        z.reshape((106, 69)).T, show=False, ax=axis, cmap='viridis_r'
-    )
+    axis = mps.heatmap(z.reshape((106, 69)).T, show=False, ax=axis, cmap='viridis_r')
     axis.set_xlim((70, 108))
     axis.set_axis_off()
     return axis

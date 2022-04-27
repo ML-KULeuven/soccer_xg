@@ -26,9 +26,7 @@ def goalangle(actions, cfg=_spadl_cfg):
     dy = cfg['width'] / 2 - actions['start_y']
     angledf = pd.DataFrame()
     angledf['shot_angle'] = np.arctan(
-        cfg['goal_width']
-        * dx
-        / (dx ** 2 + dy ** 2 - (cfg['goal_width'] / 2) ** 2)
+        cfg['goal_width'] * dx / (dx**2 + dy**2 - (cfg['goal_width'] / 2) ** 2)
     )
     angledf.loc[angledf['shot_angle'] < 0, 'shot_angle'] += np.pi
     angledf.loc[(actions['start_x'] >= cfg['length']), 'shot_angle'] = 0
@@ -56,7 +54,7 @@ def speed(gamestates):
         spaced['speedx_a0' + (str(i + 1))] = dx.abs() / dt
         dy = a.end_y - a0.start_y
         spaced['speedy_a0' + (str(i + 1))] = dy.abs() / dt
-        spaced['speed_a0' + (str(i + 1))] = np.sqrt(dx ** 2 + dy ** 2) / dt
+        spaced['speed_a0' + (str(i + 1))] = np.sqrt(dx**2 + dy**2) / dt
     return spaced
 
 
@@ -171,7 +169,9 @@ def triangular_grid(name, angle_bins, dist_bins, symmetrical=False):
             zonedf.loc[
                 zonedf.start_angle_to_goal_a0 > np.pi / 2,
                 'start_angle_to_goal_a0',
-            ] -= (np.pi / 2)
+            ] -= (
+                np.pi / 2
+            )
         dist_bin = np.digitize(zonedf.start_dist_to_goal_a0, dist_bins)
         angle_bin = np.digitize(zonedf.start_angle_to_goal_a0, angle_bins)
         zonedf[name] = dist_bin * angle_bin + dist_bin
@@ -210,7 +210,7 @@ def custom_grid(name, zones, is_in_zone):
     def fn(actions):
         zonedf = actions[['start_x', 'start_y']].copy()
         zonedf[name] = [0] * len(actions)  # zone 0 if no match
-        for (i, zone) in enumerate(zones):
+        for i, zone in enumerate(zones):
             for subzone in zone:
                 zonedf.loc[
                     np.apply_along_axis(
@@ -219,7 +219,9 @@ def custom_grid(name, zones, is_in_zone):
                         zonedf[['start_x', 'start_y']].values,
                     ),
                     name,
-                ] = (i + 1)
+                ] = (
+                    i + 1
+                )
         zonedf[name] = pd.Categorical(
             zonedf[name], categories=list(range(len(zones) + 1)), ordered=False
         )

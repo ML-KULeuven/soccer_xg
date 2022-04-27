@@ -1,4 +1,5 @@
 import pytest
+
 import soccer_xg.xg as xg
 from soccer_xg.api import DataApi
 

@@ -38,9 +38,7 @@ class UniqueCountColumnSelector(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         counts = X.apply(lambda vect: vect.unique().shape[0])
-        self.columns = counts.index[
-            counts.between(self.lowerbound, self.upperbound + 1)
-        ]
+        self.columns = counts.index[counts.between(self.lowerbound, self.upperbound + 1)]
         return self
 
     def transform(self, X):
@@ -103,15 +101,13 @@ class OrdinalEncoder(BaseEstimator, TransformerMixin):
         mapping = self._mapping(vc)
 
         output = pd.DataFrame()
-        output[x.name] = x.map(
-            lambda a: mapping[a] if a in mapping.keys() else -3
-        )
+        output[x.name] = x.map(lambda a: mapping[a] if a in mapping.keys() else -3)
         output.index = x.index
         return output.astype(int)
 
     def fit(self, x, y=None):
         x = x.astype(str)
-        self.vc = dict((c, x[c].value_counts()) for c in x.columns)
+        self.vc = {c: x[c].value_counts() for c in x.columns}
         return self
 
     def transform(self, df):
@@ -238,9 +234,7 @@ class StackedModel(BaseEstimator, TransformerMixin):
         raise Exception
 
     def fit_transform(self, X, y):
-        a = cross_val_predict(
-            self.delegate, X, y, cv=self.cv, method=self.method
-        )
+        a = cross_val_predict(self.delegate, X, y, cv=self.cv, method=self.method)
         self.delegate.fit(X, y)
         if len(a.shape) == 1:
             a = a.reshape(-1, 1)
@@ -262,8 +256,7 @@ class To1D(BaseEstimator, TransformerMixin):
 
 
 class TolerantLabelEncoder(TransformerMixin):
-    """ LabelEncoder is not tolerant to unseen values
-    """
+    """LabelEncoder is not tolerant to unseen values"""
 
     def __init__(self, min_count=10):
         self.min_count = min_count
@@ -272,9 +265,7 @@ class TolerantLabelEncoder(TransformerMixin):
         assert len(x.shape) == 1
         vc = x.value_counts()
         vc = vc[vc > self.min_count]
-        self.values = {
-            value: (1 + index) for index, value in enumerate(vc.index)
-        }
+        self.values = {value: (1 + index) for index, value in enumerate(vc.index)}
         return self
 
     def transform(self, x):
@@ -290,9 +281,7 @@ class TolerantLabelEncoder(TransformerMixin):
 
 
 class SVD_Embedding(TransformerMixin):
-    def __init__(
-        self, rowname, colname, valuename=None, svd_kwargs={'n_components': 10}
-    ):
+    def __init__(self, rowname, colname, valuename=None, svd_kwargs={'n_components': 10}):
         self.rowname = rowname
         self.colname = colname
         self.valuename = valuename

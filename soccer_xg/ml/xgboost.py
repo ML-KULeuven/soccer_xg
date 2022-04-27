@@ -93,9 +93,7 @@ def _xgboost_gridsearch_model(
         [
             (
                 'preprocessing',
-                simple_proc_for_tree_algoritms(
-                    numeric_features, categoric_features
-                ),
+                simple_proc_for_tree_algoritms(numeric_features, categoric_features),
             ),
             ('clf', model),
         ]
@@ -104,12 +102,8 @@ def _xgboost_gridsearch_model(
     if use_dask:
         from dask_ml.model_selection import RandomizedSearchCV
 
-        return RandomizedSearchCV(
-            pipe, param_space, n_iter=n_iter, scoring=scoring, cv=5
-        )
+        return RandomizedSearchCV(pipe, param_space, n_iter=n_iter, scoring=scoring, cv=5)
     else:
         from sklearn.model_selection import RandomizedSearchCV
 
-        return RandomizedSearchCV(
-            pipe, param_space, n_iter=n_iter, scoring=scoring, cv=5
-        )
+        return RandomizedSearchCV(pipe, param_space, n_iter=n_iter, scoring=scoring, cv=5)

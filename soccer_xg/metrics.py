@@ -91,12 +91,9 @@ def _reliability(y_true, y_prob, bins):
         where_in_bin = (low <= y_prob) & (y_prob < high)
         if where_in_bin.sum() > 0:
             accs[m] = (
-                np.sum((y_prob[where_in_bin] >= 0.5) == y_true[where_in_bin])
-                / where_in_bin.sum()
+                np.sum((y_prob[where_in_bin] >= 0.5) == y_true[where_in_bin]) / where_in_bin.sum()
             )
-            confs[m] = np.mean(
-                np.maximum(y_prob[where_in_bin], 1 - y_prob[where_in_bin])
-            )
+            confs[m] = np.mean(np.maximum(y_prob[where_in_bin], 1 - y_prob[where_in_bin]))
             counts[m] = where_in_bin.sum()
 
     return accs, confs, counts
@@ -131,24 +128,16 @@ def bayesian_calibration_curve(y_true, y_pred, n_bins=100):
     kde_pos = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(
         (y_pred[y_true])[:, np.newaxis]
     )
-    kde_total = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(
-        y_pred[:, np.newaxis]
-    )
+    kde_total = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(y_pred[:, np.newaxis])
     sample_probabilities = np.linspace(0.01, 0.99, 99)
     number_density_offense_won = np.exp(
         kde_pos.score_samples(sample_probabilities[:, np.newaxis])
-    ) * np.sum((y_true))
+    ) * np.sum(y_true)
     number_density_total = np.exp(
         kde_total.score_samples(sample_probabilities[:, np.newaxis])
     ) * len(y_true)
-    number_pos = (
-        number_density_offense_won
-        * np.sum(y_true)
-        / np.sum(number_density_offense_won)
-    )
-    number_total = (
-        number_density_total * len(y_true) / np.sum(number_density_total)
-    )
+    number_pos = number_density_offense_won * np.sum(y_true) / np.sum(number_density_offense_won)
+    number_total = number_density_total * len(y_true) / np.sum(number_density_total)
     predicted_pos_percents = np.nan_to_num(number_pos / number_total, 1)
 
     return (
@@ -159,14 +148,12 @@ def bayesian_calibration_curve(y_true, y_pred, n_bins=100):
 
 
 def max_deviation(sample_probabilities, predicted_pos_percents):
-    """Compute the largest discrepancy between the model and expectation.
-    """
+    """Compute the largest discrepancy between the model and expectation."""
     abs_deviations = np.abs(predicted_pos_percents - sample_probabilities)
     return np.max(abs_deviations)
 
 
 def residual_area(sample_probabilities, predicted_pos_percents):
-    """Compute the total area under the curve of |predicted prob - expected prob|
-    """
+    """Compute the total area under the curve of |predicted prob - expected prob|"""
     abs_deviations = np.abs(predicted_pos_percents - sample_probabilities)
     return integrate.trapz(abs_deviations, sample_probabilities)

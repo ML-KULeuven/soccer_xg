@@ -1,5 +1,3 @@
-from __future__ import division
-
 import warnings
 from inspect import signature
 
@@ -88,9 +86,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
            A. Niculescu-Mizil & R. Caruana, ICML 2005
     """
 
-    def __init__(
-        self, base_estimator=None, method=None, cv=3, score_type=None
-    ):
+    def __init__(self, base_estimator=None, method=None, cv=3, score_type=None):
         self.base_estimator = base_estimator
         self.method = method
         self.cv = cv
@@ -130,13 +126,10 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
             if hasattr(self.cv, 'n_folds')
             else None
         )
-        if n_folds and np.any(
-            [np.sum(y == class_) < n_folds for class_ in self.classes_]
-        ):
+        if n_folds and np.any([np.sum(y == class_) < n_folds for class_ in self.classes_]):
             raise ValueError(
                 'Requesting %d-fold cross-validation but provided'
-                ' less than %d examples for at least one class.'
-                % (n_folds, n_folds)
+                ' less than %d examples for at least one class.' % (n_folds, n_folds)
             )
 
         self.calibrated_classifiers_ = []
@@ -160,10 +153,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
             cv = check_cv(self.cv, X, y, classifier=True)
             fit_parameters = signature(base_estimator.fit).parameters
             estimator_name = type(base_estimator).__name__
-            if (
-                sample_weight is not None
-                and 'sample_weight' not in fit_parameters
-            ):
+            if sample_weight is not None and 'sample_weight' not in fit_parameters:
                 warnings.warn(
                     '%s does not support sample_weight. Samples'
                     ' weights are only used for the calibration'
@@ -189,9 +179,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
                     score_type=self.score_type,
                 )
                 if sample_weight is not None:
-                    calibrated_classifier.fit(
-                        X[test], y[test], sample_weight[test]
-                    )
+                    calibrated_classifier.fit(X[test], y[test], sample_weight[test])
                 else:
                     calibrated_classifier.fit(X[test], y[test])
                 self.calibrated_classifiers_.append(calibrated_classifier)
@@ -275,7 +263,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
 
-class _CalibratedClassifier(object):
+class _CalibratedClassifier:
     """Probability calibration with isotonic regression or sigmoid.
 
     It assumes that base_estimator has already been fit, and trains the
@@ -329,8 +317,7 @@ class _CalibratedClassifier(object):
                     df = df[:, 1:]
             else:
                 raise RuntimeError(
-                    'classifier has no decision_function or '
-                    'predict_proba method.'
+                    'classifier has no decision_function or ' 'predict_proba method.'
                 )
         else:
             if hasattr(self.base_estimator, self.score_type):
@@ -342,9 +329,7 @@ class _CalibratedClassifier(object):
                     if n_classes == 2:
                         df = df[:, 1:]
             else:
-                raise RuntimeError(
-                    'classifier has no ' + self.score_type + 'method.'
-                )
+                raise RuntimeError('classifier has no ' + self.score_type + 'method.')
 
         idx_pos_class = np.arange(df.shape[1])
 
@@ -420,9 +405,7 @@ class _CalibratedClassifier(object):
         proba = np.zeros((X.shape[0], n_classes))
 
         df, idx_pos_class = self._preproc(X)
-        for k, this_df, calibrator in zip(
-            idx_pos_class, df.T, self.calibrators_
-        ):
+        for k, this_df, calibrator in zip(idx_pos_class, df.T, self.calibrators_):
             if n_classes == 2:
                 k += 1
             proba[:, k] = calibrator.predict(this_df)
@@ -461,16 +444,12 @@ class _CalibratedClassifier(object):
         proba = np.zeros((len(df), n_classes))
         idx_pos_class = [0]
 
-        for k, this_df, calibrator in zip(
-            idx_pos_class, df.T, self.calibrators_
-        ):
+        for k, this_df, calibrator in zip(idx_pos_class, df.T, self.calibrators_):
             if n_classes == 2:
                 k += 1
             pro = calibrator.predict(this_df)
             if np.any(np.isnan(pro)):
-                pro[np.isnan(pro)] = calibrator.predict(
-                    this_df[np.isnan(pro)] + 1e-300
-                )
+                pro[np.isnan(pro)] = calibrator.predict(this_df[np.isnan(pro)] + 1e-300)
             proba[:, k] = pro
 
         # Normalize the probabilities
@@ -629,10 +608,7 @@ def calibration_curve(y_true, y_prob, normalize=False, n_bins=5):
     if normalize:  # Normalize predicted values into interval [0, 1]
         y_prob = (y_prob - y_prob.min()) / (y_prob.max() - y_prob.min())
     elif y_prob.min() < 0 or y_prob.max() > 1:
-        raise ValueError(
-            'y_prob has values outside [0, 1] and normalize is '
-            'set to False.'
-        )
+        raise ValueError('y_prob has values outside [0, 1] and normalize is ' 'set to False.')
 
     y_true = _check_binary_probabilistic_predictions(y_true, y_prob)
 
@@ -661,8 +637,7 @@ def _check_binary_probabilistic_predictions(y_true, y_prob):
 
     if len(labels) != 2:
         raise ValueError(
-            'Only binary classification is supported. '
-            'Provided labels %s.' % labels
+            'Only binary classification is supported. ' 'Provided labels %s.' % labels
         )
 
     if y_prob.max() > 1:

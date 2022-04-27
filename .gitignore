@@ -2,7 +2,7 @@
 analysis/
 # exclude all data, but keep the folder
 data/*
-!data/.gitkeep 
+!data/.gitkeep
 tests/data/*
 !tests/data/download.py
 # exclude all models, unless explicitly allowed

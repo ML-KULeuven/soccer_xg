@@ -18,10 +18,10 @@ deduplic = dict(
 
 
 class DataApi:
-    """An objectect that provides easy access to a SPADL event stream dataset.
+    """An object that provides easy access to a SPADL event stream dataset.
 
-    Automatically defines an attribute which lazy loads the contents of
-    each table in the HDF files and defines a couple of methods to easily execute
+    Automatically defines an attribute which lazy loads the contents of each
+    table in the HDF files and defines a couple of methods to easily execute
     common queries on the SPADL data.
 
     Parameters
@@ -42,27 +42,23 @@ class DataApi:
         if type(db_path) is list:
             self.db_path = set(db_path)
         elif type(db_path) is not set:
-            self.db_path = set([db_path])
+            self.db_path = {db_path}
 
         for p in self.db_path:
             if not os.path.exists(p):
-                raise ValueError(
-                    'A database `{}` does not exist.'.format(str(p))
-                )
+                raise ValueError(f'A database `{str(p)}` does not exist.')
 
     def __getattr__(self, name):
         self.logger.info(f'Loading `{name}` data')
         DB = []
         for p in self.db_path:
             with pd.HDFStore(p, 'r') as store:
-                for key in [
-                    k for k in store.keys() if (k[1:].rsplit('/')[0] == name)
-                ]:
+                for key in [k for k in store.keys() if (k[1:].rsplit('/')[0] == name)]:
                     db = store[key]
                     db['db_path'] = p
                     DB.append(db)
         if len(DB) == 0:
-            raise ValueError('A table `{}` does not exist.'.format(str(name)))
+            raise ValueError(f'A table `{str(name)}` does not exist.')
         else:
             DB = pd.concat(DB, sort=False)
             if name in deduplic:
@@ -105,26 +101,18 @@ class DataApi:
             db = self.games.at[game_id, 'db_path']
             with pd.HDFStore(db, 'r') as store:
                 df_game_events = store.get(f'events/game_{game_id}')
-                home_team_id, away_team_id = self.get_home_away_team_id(
-                    game_id
-                )
+                home_team_id, away_team_id = self.get_home_away_team_id(game_id)
                 if only_home:
                     team_filter = df_game_events.team_id == home_team_id
                 elif only_away:
                     team_filter = df_game_events.team_id == away_team_id
                 else:
                     team_filter = [True] * len(df_game_events)
-                return df_game_events.loc[(team_filter), :].set_index(
-                    ['period_id', 'period_milliseconds']
-                )
+                return df_game_events.loc[(team_filter), :]
         except KeyError:
-            raise IndexError(
-                'No events found for a game with the provided ID.'
-            )
+            raise IndexError('No events found for a game with the provided ID.')
 
-    def get_actions(
-        self, game_id, only_home=False, only_away=False, features=False
-    ):
+    def get_actions(self, game_id, only_home=False, only_away=False, features=False):
         """Return all actions performed in a given game.
 
         Parameters
@@ -158,12 +146,8 @@ class DataApi:
                 df_game_actions = store.get(f'actions/game_{game_id}')
                 if features:
                     try:
-                        df_game_features = store.get(
-                            f'features/game_{game_id}'
-                        )
-                        df_game_actions = pd.concat(
-                            [df_game_actions, df_game_features], axis=1
-                        )
+                        df_game_features = store.get(f'features/game_{game_id}')
+                        df_game_actions = pd.concat([df_game_actions, df_game_features], axis=1)
                     except KeyError:
                         warnings.warn('Could not find precomputed features')
 
@@ -174,13 +158,9 @@ class DataApi:
                 team_filter = df_game_actions.team_id == away_team_id
             else:
                 team_filter = [True] * len(df_game_actions)
-            return df_game_actions.loc[(team_filter), :].set_index(
-                ['action_id']
-            )
+            return df_game_actions.loc[(team_filter), :].set_index(['action_id'])
         except KeyError:
-            raise IndexError(
-                'No actions found for a game with the provided ID.'
-            )
+            raise IndexError('No actions found for a game with the provided ID.')
 
     # Games ##################################################################
 
@@ -203,9 +183,7 @@ class DataApi:
             If no game exists with the provided ID.
         """
         try:
-            return self.games.loc[
-                game_id, ['home_team_id', 'away_team_id']
-            ].values
+            return self.games.loc[game_id, ['home_team_id', 'away_team_id']].values
         except KeyError:
             raise IndexError('No game found with the provided ID.')
 
@@ -249,9 +227,7 @@ class DataApi:
             The first `limit` players that game the given query.
 
         """
-        return self.players[
-            self.players.player_name.str.contains(query, case=False)
-        ].head(limit)
+        return self.players[self.players.player_name.str.contains(query, case=False)].head(limit)
 
     # Teams ##################################################################
 
@@ -293,6 +269,4 @@ class DataApi:
             The first `limit` teams that game the given query.
 
         """
-        return self.teams[
-            self.teams.team_name.str.contains(query, case=False)
-        ].head(limit)
+        return self.teams[self.teams.team_name.str.contains(query, case=False)].head(limit)

@@ -1,80 +1,74 @@
+"""Create a test dataset from StatsBomb data."""
 import os
+import warnings
+from pathlib import Path
 
 import pandas as pd
 import socceraction.spadl as spadl
-import socceraction.spadl.statsbomb as statsbomb
+from socceraction.data.statsbomb import StatsBombLoader, extract_player_games
+from socceraction.spadl.statsbomb import convert_to_actions
+from statsbombpy.api_client import NoAuthWarning
 from tqdm import tqdm
 
-seasons = {
-    3: '2018',
-}
-leagues = {
-    'FIFA World Cup': 'WC',
-}
+warnings.simplefilter('ignore', NoAuthWarning)
 
-free_open_data_remote = (
-    'https://raw.githubusercontent.com/statsbomb/open-data/master/data/'
-)
-spadl_datafolder = 'tests/data'
-
-SBL = statsbomb.StatsBombLoader(root=free_open_data_remote, getter='remote')
-
-# View all available competitions
-df_competitions = SBL.competitions()
-df_selected_competitions = df_competitions[
-    df_competitions.competition_name.isin(leagues.keys())
+datasets = [
+    # 2018 World Cup
+    {
+        "season_id": 3,
+        "season_name": "2018",
+        "competition_id": 43,
+        "competition_name": "WC",
+    },
 ]
 
-for competition in df_selected_competitions.itertuples():
-    # Get matches from all selected competition
-    matches = SBL.matches(competition.competition_id, competition.season_id)
+spadl_datafolder = Path("tests/data")
 
-    matches_verbose = tqdm(
-        list(matches.itertuples()), desc='Loading match data'
-    )
+SBL = StatsBombLoader(getter="remote")
+
+for dataset in datasets:
+    # Get matches from all selected competition
+    matches = SBL.games(dataset["competition_id"], dataset["season_id"])
+
+    matches_verbose = tqdm(list(matches.itertuples()), desc="Loading match data")
     teams, players, player_games = [], [], []
 
-    competition_id = leagues[competition.competition_name]
-    season_id = seasons[competition.season_id]
-    spadl_h5 = os.path.join(
-        spadl_datafolder, f'spadl-statsbomb-{competition_id}-{season_id}.h5'
+    spadl_h5 = (
+        spadl_datafolder
+        / f"spadl-statsbomb-{dataset['competition_name']}-{dataset['season_name']}.h5"
     )
     with pd.HDFStore(spadl_h5) as spadlstore:
-
-        spadlstore.put('actiontypes', spadl.actiontypes_df(), format='table')
-        spadlstore.put('results', spadl.results_df(), format='table')
-        spadlstore.put('bodyparts', spadl.bodyparts_df(), format='table')
+        spadlstore.put("actiontypes", spadl.actiontypes_df(), format="table")
+        spadlstore.put("results", spadl.results_df(), format="table")
+        spadlstore.put("bodyparts", spadl.bodyparts_df(), format="table")
 
         for match in matches_verbose:
             # load data
-            teams.append(SBL.teams(match.match_id))
-            players.append(SBL.players(match.match_id))
-            events = SBL.events(match.match_id)
+            teams.append(SBL.teams(match.game_id))
+            players.append(SBL.players(match.game_id))
+            events = SBL.events(match.game_id)
 
             # convert data
-            player_games.append(statsbomb.extract_player_games(events))
+            player_games.append(extract_player_games(events))
             spadlstore.put(
-                f'actions/game_{match.match_id}',
-                statsbomb.convert_to_actions(events, match.home_team_id),
-                format='table',
+                f"events/game_{match.game_id}",
+                events,
+            )
+            spadlstore.put(
+                f"actions/game_{match.game_id}",
+                convert_to_actions(events, match.home_team_id),
+                format="table",
             )
 
-        games = matches.rename(
-            columns={'match_id': 'game_id', 'match_date': 'game_date'}
-        )
-        games.season_id = season_id
-        games.competition_id = competition_id
-        spadlstore.put('games', games)
+        matches["season_id"] = dataset["season_name"]
+        matches["competition_id"] = dataset["competition_name"]
+        spadlstore.put("games", matches)
         spadlstore.put(
-            'teams',
-            pd.concat(teams).drop_duplicates('team_id').reset_index(drop=True),
+            "teams",
+            pd.concat(teams).drop_duplicates("team_id").reset_index(drop=True),
         )
         spadlstore.put(
-            'players',
-            pd.concat(players)
-            .drop_duplicates('player_id')
-            .reset_index(drop=True),
+            "players",
+            pd.concat(players).drop_duplicates("player_id").reset_index(drop=True),
         )
-        spadlstore.put(
-            'player_games', pd.concat(player_games).reset_index(drop=True)
-        )
+        spadlstore.put("player_games", pd.concat(player_games).reset_index(drop=True))

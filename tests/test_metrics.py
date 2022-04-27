@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 import soccer_xg.metrics as metrics_lib
 
 #
@@ -22,25 +23,17 @@ def test_expected_calibration_error():
 
 def test_expected_calibration_error_all_wrong():
     n_bins = 90
-    ece = metrics_lib.expected_calibration_error(
-        np.ones(10), np.zeros(10), n_bins=n_bins
-    )
+    ece = metrics_lib.expected_calibration_error(np.ones(10), np.zeros(10), n_bins=n_bins)
     assert ece == pytest.approx(1.0)
 
-    ece = metrics_lib.expected_calibration_error(
-        np.zeros(10), np.ones(10), n_bins=n_bins
-    )
+    ece = metrics_lib.expected_calibration_error(np.zeros(10), np.ones(10), n_bins=n_bins)
     assert ece == pytest.approx(1.0)
 
 
 def test_expected_calibration_error_all_right():
     n_bins = 90
-    ece = metrics_lib.expected_calibration_error(
-        np.ones(10), np.ones(10), n_bins=n_bins
-    )
+    ece = metrics_lib.expected_calibration_error(np.ones(10), np.ones(10), n_bins=n_bins)
     assert ece == pytest.approx(0.0)
 
-    ece = metrics_lib.expected_calibration_error(
-        np.zeros(10), np.zeros(10), n_bins=n_bins
-    )
+    ece = metrics_lib.expected_calibration_error(np.zeros(10), np.zeros(10), n_bins=n_bins)
     assert ece == pytest.approx(0.0)
