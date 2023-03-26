@@ -1,4 +1,3 @@
-import category_encoders as ce
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import make_pipeline, make_union
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -39,7 +38,7 @@ def simple_proc_for_linear_algoritms(numeric_features, categoric_features):
     catpipe = make_pipeline(
         ColumnsSelector(categoric_features),
         AsString(),
-        ce.OneHotEncoder()
+        OneHotEncoder()
         # ColumnApplier(FillNaN('nan')),
         # ColumnApplier(TolerantLabelEncoder())
     )

@@ -22,18 +22,21 @@ classifiers=[
 
 [tool.poetry.dependencies]
 python = ">=3.8.1,<4.0.0"
-socceraction = "^1.4.0"
+socceraction = {version = "^1.4.0", extras = ["statsbomb"]}
 tqdm = "^4.65.0"
 fuzzywuzzy = {version = "^0.18.0", extras = ["speedup"]}
 numpy = "^1.24.2"
 pandas = "^1.5.3"
 scikit-learn = "^1.2.2"
 betacal = "^1.1.0"
-xgboost = "^1.7.4"
 # dask = {version = "^2022.4.1", extras = ["array,distributed,dataframe"], optional = true}
 # dask-ml = {version = "^2022.1.22", optional = true}
 # asyncssh = {version = "^2.10.1", optional = true}
 # paramiko = {version = "^2.10.4", optional = true}
+inflect = "^6.0.2"  # fix for missing dependency in statsbombpy
+joblib = "^1.2.0"  # fix for missing dependency in statsbombpy
+tables = "^3.8.0"
+xgboost = "^1.7.4"
 
 [tool.poetry.extras]
 # dask = ["dask", "dask_ml", "asyncssh", "paramiko"]
