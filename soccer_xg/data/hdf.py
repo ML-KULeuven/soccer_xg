@@ -1,5 +1,6 @@
 """HDF store interface."""
 import logging
+import warnings
 from typing import Optional
 
 import pandas as pd
@@ -94,6 +95,19 @@ class HDFDataset(Dataset, pd.HDFStore):
         player_games.drop_duplicates(subset=["player_id", "game_id"], keep="last", inplace=True)
         self.put("player_games", player_games, format="table", data_columns=True)
 
+    def _import_events(self, events: pd.DataFrame) -> None:
+        events = events.copy()
+        events['event_id'] = events['event_id'].astype('str')
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
+            self.put(
+                f"events/game_{events.game_id.iloc[0]}",
+                events,
+                format="fixed",
+                data_columns=True,
+            )
+        logger.debug("Imported %d events", len(events))
+
     def _import_actions(self, actions: pd.DataFrame) -> None:
         actions = actions.copy()
         actions['original_event_id'] = actions['original_event_id'].astype('str')
@@ -130,9 +144,16 @@ class HDFDataset(Dataset, pd.HDFStore):
             cols = ["team_id", "player_id", "player_name", "nickname"]
             return players[cols].set_index(["player_id"])
 
+    def events(self, game_id: int) -> pd.DataFrame:
+        try:
+            df_events = self[f"events/game_{game_id}"].set_index(["event_id"])
+        except KeyError:
+            raise IndexError(f"No game found with ID={game_id}")
+        return df_events
+
     def actions(self, game_id: int) -> pd.DataFrame:
         try:
-            df_actions = self[f"actions/game_{game_id}"].set_index(["game_id", "action_id"])
+            df_actions = self[f"actions/game_{game_id}"].set_index(["action_id"])
         except KeyError:
             raise IndexError(f"No game found with ID={game_id}")
         return df_actions

@@ -2,6 +2,7 @@
 from typing import Optional, Tuple
 
 import pandas as pd
+import sqlalchemy
 
 from .base import Dataset
 
@@ -36,6 +37,20 @@ class SQLDataset(Dataset, pd.io.sql.SQLDatabase):
     def _import_players(self, players: pd.DataFrame) -> None:
         self.to_sql(players, "players", if_exists="append", index=False)
         self._drop_duplicates("players", ["player_id"])
+
+    def _import_events(self, events: pd.DataFrame) -> None:
+        self.to_sql(
+            events,
+            "events",
+            if_exists="append",
+            index=False,
+            dtype={
+                "extra": sqlalchemy.types.JSON,
+                "related_events": sqlalchemy.types.JSON,
+                "location": sqlalchemy.types.JSON,
+            },
+        )
+        self._drop_duplicates("events", ["game_id", "event_id"])
 
     def _import_actions(self, actions: pd.DataFrame) -> None:
         self.to_sql(actions, "actions", if_exists="append", index=False)
@@ -88,9 +103,16 @@ class SQLDataset(Dataset, pd.io.sql.SQLDatabase):
                 index_col="player_id",
             )
 
+    def events(self, game_id: int) -> pd.DataFrame:
+        query = f"SELECT * FROM events WHERE game_id = {game_id}"
+        df_events = self.read_query(query, index_col=["event_id"])
+        if df_events.empty:
+            raise IndexError(f"No game found with ID={game_id}")
+        return df_events
+
     def actions(self, game_id: int) -> pd.DataFrame:
         query = f"SELECT * FROM actions WHERE game_id = {game_id}"
-        df_actions = self.read_query(query, index_col=["game_id", "action_id"])
+        df_actions = self.read_query(query, index_col=["action_id"])
         if df_actions.empty:
             raise IndexError(f"No game found with ID={game_id}")
         return df_actions

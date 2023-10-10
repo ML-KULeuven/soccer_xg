@@ -56,6 +56,7 @@ class Dataset(ABC):
                 teams.append(data_loader.teams(game.game_id))
                 players.append(data_loader.players(game.game_id))
                 events = data_loader.events(game.game_id)
+                self._import_events(events)
                 # Store actions
                 actions = fn_convert_to_actions(events, game.home_team_id)
                 self._import_actions(actions)
@@ -83,6 +84,10 @@ class Dataset(ABC):
 
     @abstractmethod
     def _import_players(self, players: pd.DataFrame) -> None:
+        pass
+
+    @abstractmethod
+    def _import_events(self, actions: pd.DataFrame) -> None:
         pass
 
     @abstractmethod
@@ -131,6 +136,21 @@ class Dataset(ABC):
         -------
         pandas.DataFrame
             A DataFrame of players.
+        """
+
+    @abstractmethod
+    def events(self, game_id: int) -> pd.DataFrame:
+        """Get a DataFrame of events.
+
+        Parameters
+        ----------
+        game_id : int
+            The ID of the game.
+
+        Returns
+        -------
+        pandas.DataFrame
+            A DataFrame of events.
         """
 
     @abstractmethod

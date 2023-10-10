@@ -25,6 +25,8 @@ def test_create_sqlite_dataset() -> None:
         assert len(df_teams) == 2
         df_players = db.read_query("SELECT * FROM players")
         assert len(df_players) == 30
+        df_events = db.read_query("SELECT * FROM events")
+        assert len(df_events) > 0
         df_actions = db.read_query("SELECT * FROM actions")
         assert len(df_actions) > 0
 
@@ -118,6 +120,15 @@ def test_players(db: Dataset) -> None:
     assert len(df_players) == 30
     df_players = db.players(game_id=0)
     assert len(df_players) == 0
+
+
+@pytest.mark.parametrize("db", database_interfaces)
+def test_events(db: Dataset) -> None:
+    """It should return the events for a given game."""
+    df_events = db.events(game_id=3795107)
+    assert len(df_events) > 0
+    with pytest.raises(IndexError, match="No game found with ID=0"):
+        db.events(game_id=0)
 
 
 @pytest.mark.parametrize("db", database_interfaces)
