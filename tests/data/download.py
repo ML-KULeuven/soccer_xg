@@ -1,5 +1,4 @@
 """Create a test dataset from StatsBomb data."""
-import os
 import warnings
 from pathlib import Path
 
@@ -22,7 +21,7 @@ datasets = [
     },
 ]
 
-spadl_datafolder = Path("tests/data")
+spadl_datafolder = Path(__file__).resolve().parent
 
 SBL = StatsBombLoader(getter="remote")
 
