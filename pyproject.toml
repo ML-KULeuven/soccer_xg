@@ -93,5 +93,5 @@ module = ["tests.*"]
 disallow_untyped_defs = false
 
 [build-system]
-requires = ["poetry>=1.2"]
+requires = ["poetry>=1.2.0"]
 build-backend = "poetry.masonry.api"
