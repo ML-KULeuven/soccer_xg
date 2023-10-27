@@ -33,8 +33,6 @@ betacal = "^1.1.0"
 # dask-ml = {version = "^2022.1.22", optional = true}
 # asyncssh = {version = "^2.10.1", optional = true}
 # paramiko = {version = "^2.10.4", optional = true}
-inflect = "^6.0.2"  # fix for missing dependency in statsbombpy
-joblib = "^1.2.0"  # fix for missing dependency in statsbombpy
 tables = "^3.8.0"
 xgboost = "^1.7.4"
 
