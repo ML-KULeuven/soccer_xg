@@ -1,9 +1,9 @@
-"""A collection of feature generators.
+"""A collection of attribute (i.e., feature and label) generators.
 
-There are three types of feature generators:
+There are three types of generators:
 
 gamestates
-   Feature generators which calculate a set of features based on the shot and
+   Generators which calculate a set of attributes based on the shot and
    the N previous actions (i.e., shot context). The input is a list of
    gamestates. Internally each game state is represented as a list of SPADL
    action dataframes :math:`[a_0, a_1, ...]` where each row in the :math:`a_i`
@@ -11,22 +11,22 @@ gamestates
    :math:`a_{i-1}` dataframe. :math:`a_0` is the shot action.
 
 actions
-   Feature generators which calculate a set of features based on the shot and
+   Generators which calculate a set of attributes based on the shot and
    all preceding actions. The input is a :class:`pandas.DataFrame` of actions
-   in SPADL format and a boolean mask to select the shots for which features
+   in SPADL format and a boolean mask to select the shots for which attributes
    should be computed.
 
 events
-   Feature generators which calculate a set of features based on the original
-   event data. These feature generators are provider-specific. The input is
-   a :class:`pandas.DataFrame` of events and a boolean mask to select the
-   shots for which features should be computed.
+   Generators which calculate a set of attributes based on the original
+   event data. These generators are provider-specific. The input is
+   a :class:`pandas.DataFrame` of events and a series with event IDs to select
+   the shots for which attributes should be computed.
 
 The types are specified using the ``ftype`` decorator. Only functions, which
-have a parameter called "ftype" are seen by soccer-xg as a feature generator.
-Others will not be calculated.
+have a parameter called "ftype" are seen by soccer-xg as a generator. Others
+will not be calculated.
 
-As the "gamestates" and "actions" feature generators compute features from
+As the "gamestates" and "actions" generators compute attributes from
 SPADL actions, they work for all data providers that are supported by the
 SoccerAction library.
 """
@@ -36,10 +36,10 @@ import warnings
 import numpy as np
 import pandas as pd
 
+from socceraction import spadl
 import socceraction.spadl.config as spadlcfg
 import socceraction.vaep.features as fs
 from socceraction.vaep.features import simple
-from . import utils
 
 _spadl_cfg = {
     "length": 105,
@@ -70,7 +70,7 @@ def ftype(value):
 
 
 # ############################################################################
-# SoccerAction-style gamestate features
+# SoccerAction-style gamestate attributes
 # ############################################################################
 
 actiontype = ftype("gamestates")(fs.actiontype)
@@ -107,7 +107,7 @@ def speed(gamestates):
         between each <nb_prev_actions> action ai and action a0.
     """
     a0 = gamestates[0]
-    spaced = pd.DataFrame()
+    spaced = pd.DataFrame(index=a0.index)
     for i, a in enumerate(gamestates[1:]):
         dt = a0.time_seconds - a.time_seconds
         dt[dt < 1] = 1
@@ -120,8 +120,34 @@ def speed(gamestates):
 
 
 # ############################################################################
-# Features on SPADL shots
+# Attributes on SPADL shots
 # ############################################################################
+
+
+@ftype("actions")
+def goal_from_shot(actions, shot_mask):
+    """Determine whether a goal was scored from the current action.
+
+    This label can be used to train an xG model.
+
+    Parameters
+    ----------
+    actions : pd.DataFrame
+        The actions of a game in SPADL format.
+    shot_mask : pd.Series
+        A boolean mask to select the shots for which attributes should be
+        computed.
+
+    Returns
+    -------
+    pd.DataFrame
+        A dataframe with a column 'goal' and a row for each shot set to
+        True if a goal was scored from the current shot; otherwise False.
+    """
+    shots = actions.loc[shot_mask]
+    goaldf = pd.DataFrame(index=shots.index)
+    goaldf["goal"] = shots["result_name"] == "success"
+    return goaldf
 
 
 @ftype("actions")
@@ -133,7 +159,7 @@ def shot_dist(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -143,7 +169,7 @@ def shot_dist(actions, shot_mask):
         ('dist_shot').
     """
     shots = actions.loc[shot_mask]
-    distdf = pd.DataFrame()
+    distdf = pd.DataFrame(index=shots.index)
     dx = (_spadl_cfg["length"] - shots["start_x"]).values
     dy = (_spadl_cfg["width"] / 2 - shots["start_y"]).values
     distdf["dist_shot"] = np.sqrt(dx**2 + dy**2)
@@ -162,7 +188,7 @@ def shot_location(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -172,7 +198,7 @@ def shot_location(actions, shot_mask):
         and a column for the distance to the goal line ('dx_shot').
     """
     shots = actions.loc[shot_mask]
-    locationdf = pd.DataFrame()
+    locationdf = pd.DataFrame(index=shots.index)
     locationdf["dx_shot"] = _spadl_cfg["length"] - shots["start_x"]
     locationdf["dy_shot"] = (_spadl_cfg["width"] / 2 - shots["start_y"]).abs()
     return locationdf
@@ -190,7 +216,7 @@ def shot_angle(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -200,7 +226,7 @@ def shot_angle(actions, shot_mask):
         ('angle_shot').
     """
     shots = actions.loc[shot_mask]
-    polardf = pd.DataFrame()
+    polardf = pd.DataFrame(index=shots.index)
     dx = (_spadl_cfg["length"] - shots["start_x"]).abs().values
     dy = (_spadl_cfg["width"] / 2 - shots["start_y"]).abs().values
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -217,7 +243,7 @@ def shot_visible_angle(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -234,7 +260,7 @@ def shot_visible_angle(actions, shot_mask):
     shots = actions.loc[shot_mask]
     dx = _spadl_cfg["length"] - shots["start_x"]
     dy = _spadl_cfg["width"] / 2 - shots["start_y"]
-    angledf = pd.DataFrame()
+    angledf = pd.DataFrame(index=shots.index)
     angledf["visible_angle_shot"] = np.arctan(
         _spadl_cfg["goal_width"] * dx / (dx**2 + dy**2 - (_spadl_cfg["goal_width"] / 2) ** 2)
     )
@@ -268,7 +294,7 @@ def shot_relative_angle(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -309,7 +335,7 @@ def shot_bodypart(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -319,9 +345,11 @@ def shot_bodypart(actions, shot_mask):
         ('bodypart_name_shot').
     """
     shots = actions.loc[shot_mask]
-    bodypartdf = pd.DataFrame()
+    bodypartdf = pd.DataFrame(index=shots.index)
     bodypartdf["bodypart_name_shot"] = pd.Categorical(
-        shots["bodypart_name"].replace(["foot_left", "foot_right"], "foot"), categories=["foot", "head", "other"], ordered=False
+        shots["bodypart_name"].replace(["foot_left", "foot_right"], "foot"),
+        categories=["foot", "head", "other"],
+        ordered=False,
     )
     return bodypartdf
 
@@ -336,7 +364,7 @@ def shot_bodypart_detailed(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -346,7 +374,7 @@ def shot_bodypart_detailed(actions, shot_mask):
         ('bodypart_name_shot').
     """
     shots = actions.loc[shot_mask]
-    bodypartdf = pd.DataFrame()
+    bodypartdf = pd.DataFrame(index=shots.index)
     bodypartdf["bodypart_name_shot"] = pd.Categorical(
         shots["bodypart_name"], categories=spadlcfg.bodyparts, ordered=False
     )
@@ -362,7 +390,7 @@ def shot_bodypart_onehot(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -372,11 +400,13 @@ def shot_bodypart_onehot(actions, shot_mask):
         to take a shot.
     """
     shots = actions.loc[shot_mask]
-    X = pd.DataFrame()
+    X = pd.DataFrame(index=shots.index)
     for bodypart_name in spadlcfg.bodyparts:
         col = "bodypart_" + bodypart_name + "_shot"
         if bodypart_name == "head/other":
             X[col] = shots["bodypart_name"].isin(["head", "other", "head/other"])
+        elif bodypart_name == "foot":
+            X[col] = shots["bodypart_name"].isin(["foot", "foot_left", "foot_right"])
         else:
             X[col] = shots["bodypart_name"] == bodypart_name
     return X
@@ -397,7 +427,7 @@ def post_dribble(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -434,7 +464,7 @@ def assist_type(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -491,7 +521,7 @@ def fastbreak(actions, shot_mask):
     actions : pd.DataFrame
         The actions of a game in SPADL format.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -738,7 +768,7 @@ def custom_grid(name, zones, is_in_zone):
 caley_grid = ftype("gamestates")(custom_grid("caley_zone", _caley_shot_matrix(), _point_in_rect))
 
 # ############################################################################
-# StatsBomb-specific features
+# StatsBomb-specific attributes
 # ############################################################################
 
 
@@ -818,7 +848,7 @@ def statsbomb_open_goal(events, shot_mask):
     events : pd.DataFrame
         The StatsBomb events of a game.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -846,7 +876,7 @@ def statsbomb_first_touch(events, shot_mask):
     events : pd.DataFrame
         The StatsBomb events of a game.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -877,7 +907,7 @@ def statsbomb_free_projection(events, shot_mask):
     events : pd.DataFrame
         The StatsBomb events of a game.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -950,7 +980,7 @@ def statsbomb_goalkeeper_position(events, shot_mask):
     events : pd.DataFrame
         The StatsBomb events of a game.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -1031,7 +1061,7 @@ def statsbomb_defenders_position(events, shot_mask):
     events : pd.DataFrame
         The StatsBomb events of a game.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -1105,7 +1135,7 @@ def statsbomb_assist(events, shot_mask):
     events : pd.DataFrame
         The StatsBomb events of a game.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -1198,7 +1228,7 @@ def statsbomb_counterattack(events, shot_mask):
     events : pd.DataFrame
         The StatsBomb events of a game.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -1228,7 +1258,7 @@ def statsbomb_shot_impact_height(events, shot_mask):
     events : pd.DataFrame
         The StatsBomb events of a game.
     shot_mask : pd.Series
-        A boolean mask to select the shots for which features should be
+        A boolean mask to select the shots for which attributes should be
         computed.
 
     Returns
@@ -1265,7 +1295,7 @@ def statsbomb_shot_impact_height(events, shot_mask):
     return output
 
 
-all_features = [
+default_features = [
     actiontype,
     bodypart,
     result,
@@ -1290,23 +1320,19 @@ all_features = [
     ),
 ]
 
-simple_features = []
-statsbomb_features = []
+default_labels = [goal_from_shot]
 
 
-def extract_features_on_game(
-    game, actions, events=None, xfns=all_features, shotfilter=None, nb_prev_actions=3
+def compute_attributes(
+    game,
+    actions,
+    events=None,
+    xfns=default_features,
+    yfns=default_labels,
+    shotfilter=None,
+    nb_prev_actions=3,
 ):
-    """
-    Extract features from
-
-    * a :class:`pandas.DataFrame` containing SPADL actions
-
-    and / or
-
-    * a :class:`pandas.DataFrame` containing provider-specific event data
-
-    In both cases a :class:`pandas.DataFrame` with the calculated features will be returned.
+    """Extract xG features for a given game.
 
     Parameters
     ----------
@@ -1315,10 +1341,12 @@ def extract_features_on_game(
     actions : pd.DataFrame
         A DataFrame containing SPADL actions.
     events: pd.DataFrame
-        A DataFrame containing the raw events. Can be used to calculate
-        provider-specific features.
+        A DataFrame containing the raw provider-specific events corresponding
+        to ``actions``. Can be used to calculate provider-specific features.
     xfns : list(callable)
-        List of feature generators to apply.
+        List of feature generators to apply. Defaults to ``default_features``.
+    yfns : list(callable)
+        List of label generators to apply. Defaults to ``default_labels``.
     shotfilter: callable(pd.Series) -> bool
         A function that takes a shot (in SPADL format) and returns True if the
         shot should be used for feature extraction. If None, all shots will be
@@ -1332,46 +1360,60 @@ def extract_features_on_game(
     pd.DataFrame
         A DataFrame with the calculated features.
     """
-    actions = utils.enhance_actions(actions)
-    # get shot index
+    # add names for result, bodypart and type
+    actions = spadl.utils.add_names(actions)
+
+    # select shots
     if shotfilter is None:
         # filter shots and ignore own goals
-        shot_idx = actions.type_name.isin(
+        shot_mask = actions.type_name.isin(
             ["shot", "shot_penalty", "shot_freekick"]
         ) & actions.result_name.isin(["fail", "success"])
     else:
-        shot_idx = actions.apply(lambda a: shotfilter(a), axis=1)
-    shot_actions_idx = actions.index.values[shot_idx]
-    shot_events_idx = actions.loc[shot_idx, "original_event_id"]
-    # handle inputs with no shots or no features
-    if shot_idx.sum() < 1:
+        shot_mask = actions.apply(lambda a: shotfilter(a), axis=1)
+    shot_actions_idx = actions.index[shot_mask]
+    shot_events_idx = actions.loc[shot_mask, "original_event_id"]
+
+    # handle inputs with no shots or no attributes
+    if shot_mask.sum() < 1:
         # TODO: create the expected columns
         return pd.DataFrame()
-    if len(xfns) < 1:
+    if len(xfns + yfns) < 1:
         return pd.DataFrame(index=shot_actions_idx)
-    # convert actions to ltr gamestates
+
+    # convert actions to ltr orientation
+    actions_ltr = spadl.utils.play_left_to_right(actions, game.home_team_id)
+    # convert actions to ltr shot gamestates
     gamestates = fs.gamestates(actions, nb_prev_actions)
-    gamestates = fs.play_left_to_right(gamestates, game.home_team_id)
-    # remove post-shot attributes
-    gamestates[0].loc[shot_idx, "end_x"] = float("NaN")
-    gamestates[0].loc[shot_idx, "end_y"] = float("NaN")
-    gamestates[0].loc[shot_idx, "result_id"] = float("NaN")
-    # get gamestates corresponding to shots
-    shot_gamestates = [states.loc[shot_idx] for states in gamestates]
-    # compute features
-    X = []
-    for fn in xfns:
-        if getattr(fn, "ftype", None) == "gamestates":
-            X.append(fn(shot_gamestates).set_index(shot_events_idx.values))
-        elif getattr(fn, "ftype", None) == "actions":
-            X.append(fn(gamestates[0], shot_idx).set_index(shot_events_idx.values))
-        elif getattr(fn, "ftype", None) == "events":
-            X.append(fn(events, shot_events_idx))
-        else:
-            warnings.warn("Unknown feature type for {}.".format(fn.__name__))
-    X = pd.concat(X, axis=1).loc[shot_events_idx].set_index(shot_actions_idx)
-    missing_bool = X.select_dtypes(include=['boolean']).columns
-    X[missing_bool] = X[missing_bool].fillna(False).astype(bool)
-    # replace 'a0' by 'shot' in each feature name
-    X.rename(columns=lambda s: s.replace("a0", "shot"), inplace=True)
-    return X
+    gamestates_ltr = fs.play_left_to_right(gamestates, game.home_team_id)
+    shot_gamestates_ltr = [states.loc[shot_mask].copy() for states in gamestates_ltr]
+    # remove post-shot attributes to avoid target leakage
+    shot_gamestates_ltr[0]["end_x"] = float("NaN")
+    shot_gamestates_ltr[0]["end_y"] = float("NaN")
+    shot_gamestates_ltr[0]["result_id"] = float("NaN")
+
+    # compute features and labels
+    def _apply_fns(fns):
+        attrs = []
+        for fn in fns:
+            if getattr(fn, "ftype", None) == "gamestates":
+                attrs.append(fn(shot_gamestates_ltr).set_index(shot_events_idx))
+            elif getattr(fn, "ftype", None) == "actions":
+                attrs.append(fn(actions_ltr, shot_mask).set_index(shot_events_idx))
+            elif getattr(fn, "ftype", None) == "events":
+                attrs.append(fn(events, shot_events_idx))
+            else:
+                warnings.warn("Unknown attribute type for {}.".format(fn.__name__))
+        attrs = pd.concat(attrs, axis=1).loc[shot_events_idx].set_index(shot_actions_idx)
+        attrs.index.name = "action_id"
+        # fill missing values
+        missing_bool = attrs.select_dtypes(include=['boolean']).columns
+        attrs[missing_bool] = attrs[missing_bool].fillna(False).astype(bool)
+        # replace 'a0' by 'shot' in each feature name
+        attrs.rename(columns=lambda s: s.replace("a0", "shot"), inplace=True)
+        return attrs
+
+    X = _apply_fns(xfns)
+    y = _apply_fns(yfns)
+
+    return X, y
