@@ -3,10 +3,11 @@ from typing import Generator
 
 import pytest
 from pytest import fixture
-from sqlalchemy import create_engine
-from soccer_xg.data import Dataset, HDFDataset, SQLDataset
 from socceraction.data.statsbomb import StatsBombLoader
 from socceraction.spadl.statsbomb import convert_to_actions
+from sqlalchemy import create_engine
+
+from soccer_xg.data import Dataset, HDFDataset, SQLDataset
 
 
 def test_create_sqlite_dataset() -> None:
@@ -23,7 +24,7 @@ def test_create_sqlite_dataset() -> None:
         assert len(df_games) == 1
         df_teams = db.read_query("SELECT * FROM teams")
         assert len(df_teams) == 2
-        df_players = db.read_query("SELECT * FROM players")
+        df_players = db.read_query("SELECT * FROM player_games")
         assert len(df_players) == 30
         df_events = db.read_query("SELECT * FROM events")
         assert len(df_events) > 0
@@ -45,7 +46,7 @@ def test_create_hdf_dataset(tmp_path) -> None:
         assert len(df_games) == 1
         df_teams = db["teams"]
         assert len(df_teams) == 2
-        df_players = db["players"]
+        df_players = db["player_games"]
         assert len(df_players) == 30
         df_player_games = db["player_games"]
         assert len(df_player_games) == 30
@@ -118,8 +119,8 @@ def test_players(db: Dataset) -> None:
     assert len(df_players) == 30
     df_players = db.players(game_id=3795107)
     assert len(df_players) == 30
-    df_players = db.players(game_id=0)
-    assert len(df_players) == 0
+    with pytest.raises(IndexError, match="No game found with ID=0"):
+        df_players = db.players(game_id=0)
 
 
 @pytest.mark.parametrize("db", database_interfaces)

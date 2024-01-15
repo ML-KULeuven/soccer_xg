@@ -4,9 +4,8 @@ from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
 import pandas as pd
-from tqdm.auto import tqdm
-
 from socceraction.data.base import EventDataLoader
+from tqdm.auto import tqdm
 
 
 class Dataset(ABC):
@@ -29,9 +28,9 @@ class Dataset(ABC):
         # Retrieve all available competitions
         competitions = data_loader.competitions()
         if competition_id is not None:
-            competitions = competitions[competitions.competition_id == competition_id]
+            competitions = competitions.loc[competitions.competition_id == competition_id]
         if season_id is not None:
-            competitions = competitions[competitions.season_id == season_id]
+            competitions = competitions.loc[competitions.season_id == season_id]
 
         # Store competitions
         self._import_competitions(competitions)
@@ -44,7 +43,7 @@ class Dataset(ABC):
             ]
         )
         if game_id is not None:
-            games = games[games.game_id == game_id]
+            games = games.loc[games.game_id == game_id]
         if games.empty:
             raise ValueError("No games found with given criteria.")
 
@@ -60,9 +59,9 @@ class Dataset(ABC):
                 # Store actions
                 actions = fn_convert_to_actions(events, game.home_team_id)
                 self._import_actions(actions)
-                self._import_games(games[games.game_id == game.game_id])
+                self._import_games(games.loc[games.game_id == game.game_id])
             except FileNotFoundError:
-                warnings.warn(f"Game {game.game_id} not found. Skipping.")
+                warnings.warn(f"Game {game.game_id} not found. Skipping.", stacklevel=2)
 
         # Store teams
         self._import_teams(pd.concat(teams))
@@ -87,7 +86,7 @@ class Dataset(ABC):
         pass
 
     @abstractmethod
-    def _import_events(self, actions: pd.DataFrame) -> None:
+    def _import_events(self, events: pd.DataFrame) -> None:
         pass
 
     @abstractmethod

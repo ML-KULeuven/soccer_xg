@@ -35,8 +35,8 @@ class SQLDataset(Dataset, pd.io.sql.SQLDatabase):
         self._drop_duplicates("teams", ["team_id"])
 
     def _import_players(self, players: pd.DataFrame) -> None:
-        self.to_sql(players, "players", if_exists="append", index=False)
-        self._drop_duplicates("players", ["player_id"])
+        self.to_sql(players, "player_games", if_exists="append", index=False)
+        self._drop_duplicates("player_games", ["player_id", "game_id"])
 
     def _import_events(self, events: pd.DataFrame) -> None:
         self.to_sql(
@@ -94,12 +94,15 @@ class SQLDataset(Dataset, pd.io.sql.SQLDatabase):
 
     def players(self, game_id: Optional[int] = None) -> pd.DataFrame:
         if game_id is not None:
-            return self.read_query(
-                f"SELECT * FROM players WHERE game_id = {game_id}", index_col="player_id"
+            result = self.read_query(
+                f"SELECT * FROM player_games WHERE game_id = {game_id}", index_col="player_id"
             )
+            if result.empty:
+                raise IndexError(f"No game found with ID={game_id}")
+            return result
         else:
             return self.read_query(
-                "SELECT DISTINCT player_id, player_name, nickname FROM players",
+                "SELECT DISTINCT player_id, player_name, nickname FROM player_games",
                 index_col="player_id",
             )
 

@@ -78,15 +78,6 @@ class HDFDataset(Dataset, pd.HDFStore):
         logger.debug("Imported %d teams", len(teams))
 
     def _import_players(self, players: pd.DataFrame) -> None:
-        playerids = players.copy()
-        try:
-            playerids = pd.concat([self["players"], playerids])
-        except KeyError:
-            pass
-        playerids.drop_duplicates(subset=["player_id"], keep="last", inplace=True)
-        self.put("players", playerids, format="table", data_columns=True)
-        logger.debug("Imported %d players", len(players))
-
         player_games = players.copy()
         try:
             player_games = pd.concat([self["player_games"], player_games])
@@ -134,15 +125,16 @@ class HDFDataset(Dataset, pd.HDFStore):
         return teams.set_index("team_id")
 
     def players(self, game_id: Optional[int] = None) -> pd.DataFrame:
-        players = self["players"]
         if game_id is not None:
-            players = players[players["game_id"] == game_id].drop_duplicates(
-                subset=["player_id"], keep="last"
-            )
-            return players.set_index(["game_id", "player_id"])
+            try:
+                players = self["player_games"].set_index(["game_id", "player_id"])
+                return players.loc[game_id]
+            except KeyError:
+                raise IndexError(f"No game found with ID={game_id}")
         else:
+            players = self["player_games"]
             cols = ["team_id", "player_id", "player_name", "nickname"]
-            return players[cols].set_index(["player_id"])
+            return players[cols].drop_duplicates().set_index(["player_id"])
 
     def events(self, game_id: int) -> pd.DataFrame:
         try:
