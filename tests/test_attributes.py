@@ -1,6 +1,8 @@
-import soccer_xg.features as fs
-import pytest
 import math
+
+import pytest
+
+import soccer_xg.attributes as fs
 
 
 def test_shot_angle(shot):
@@ -55,6 +57,7 @@ def test_shot_visible_angle(shot):
     shot.loc[:, ["start_x", "start_y"]] = [105 - 11, 34 + 5]
     df2 = fs.shot_visible_angle(shot, [True])
     assert df1.loc[0, "visible_angle_shot"] == df2.loc[0, "visible_angle_shot"]
+
 
 def test_shot_relative_angle(shot):
     # Test output feature names
@@ -132,6 +135,8 @@ def test_shot_bodypart_onehot(shot):
         "bodypart_head_shot",
         "bodypart_other_shot",
         "bodypart_head/other_shot",
+        "bodypart_foot_left_shot",
+        "bodypart_foot_right_shot",
     ]
     assert len(df) == 1
     # Test feature values
@@ -145,10 +150,13 @@ def test_shot_bodypart_onehot(shot):
     assert df.loc[0, "bodypart_head/other_shot"]
 
 
-def test_extract_features_on_game(api):
+def test_extract_features_on_game(dataset):
     GAME_ID = 8658  # World Cup final
-    game = api.games.loc[GAME_ID]
-    events = api.get_events(GAME_ID)
-    actions = api.get_actions(GAME_ID)
-    features = fs.extract_features_on_game(game, actions, events)
-    assert len(features) == 23
+    game = dataset.games().loc[GAME_ID]
+    events = dataset.events(GAME_ID)
+    actions = dataset.actions(GAME_ID)
+    features, labels = fs.compute_attributes(
+        game, actions, events, xfns=[fs.shot_location, fs.shot_bodypart]
+    )
+    assert features.shape == (23, 3)
+    assert labels.shape == (23, 1)

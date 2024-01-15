@@ -439,7 +439,7 @@ def post_dribble(actions, shot_mask):
         location of the shot ('carry_length').
     """
     df = {}
-    for idx, shot in actions.loc[shot_mask].iterrows():
+    for idx in actions.loc[shot_mask].index:
         carry_length = 0
         maybe_carry = actions.loc[:idx].iloc[-1]
         if maybe_carry.type_name == "dribble":
@@ -475,7 +475,7 @@ def assist_type(actions, shot_mask):
     """
     df = {}
     for idx, shot in actions.loc[shot_mask].iterrows():
-        assist = 'no_assist'
+        assist = None
         for _, maybe_assist in actions.loc[:idx].iloc[::-1].iterrows():
             if (
                 maybe_assist.type_name.isin(
@@ -561,6 +561,24 @@ def fastbreak(actions, shot_mask):
 
 @ftype("actions")
 def rebound(actions, shot_mask):
+    """Get whether the shot was a rebound.
+
+    A shot is a rebound if one of the two preceding actions was also a shot.
+
+    Parameters
+    ----------
+    actions : pd.DataFrame
+        The actions of a game in SPADL format.
+    shot_mask : pd.Series
+        A boolean mask to select the shots for which attributes should be
+        computed.
+
+    Returns
+    -------
+    pd.DataFrame
+        A dataframe with a column containing whether shot was a rebound ('rebound')
+        and the time since the previous shot ('time_prev_shot').
+    """
     df = {}
     for idx, shot in actions.loc[shot_mask].iterrows():
         # (time_prev): Time in seconds from the last shot of the same team
@@ -607,47 +625,50 @@ def _caley_shot_matrix(cfg=_spadl_cfg):
     y2 = m + cfg["goal_width"] / 2
     zones.append([(x1, y1, x2, y2)])
     # Zone 2 includes the wide areas, left and right, of the six-yard box.
-    ## Left
+    # left
     x1 = cfg["origin_x"] + cfg["length"] - cfg["six_yard_box_length"]
     x2 = cfg["origin_x"] + cfg["length"]
     y1 = m - cfg["six_yard_box_width"] / 2
     y2 = m - cfg["goal_width"] / 2
     zone_left = (x1, y1, x2, y2)
-    ## Right
+    # right
     x1 = cfg["origin_x"] + cfg["length"] - cfg["six_yard_box_length"]
     x2 = cfg["origin_x"] + cfg["length"]
     y1 = m + cfg["goal_width"] / 2
     y2 = m + cfg["six_yard_box_width"] / 2
     zone_right = (x1, y1, x2, y2)
     zones.append([zone_left, zone_right])
-    # Zone 3 is the central area between the edges of the six- and eighteen-yard boxes.
+    # Zone 3 is the central area between the edges of the six- and
+    # eighteen-yard boxes.
     x1 = cfg["origin_x"] + cfg["length"] - cfg["penalty_box_length"]
     x2 = cfg["origin_x"] + cfg["length"] - cfg["six_yard_box_length"]
     y1 = m - cfg["six_yard_box_width"] / 2
     y2 = m + cfg["six_yard_box_width"] / 2
     zones.append([(x1, y1, x2, y2)])
-    # Zone 4 comprises the wide areas in the eighteen-yard box, further from the endline than the six-yard box extended.
-    ## Left
+    # Zone 4 comprises the wide areas in the eighteen-yard box, further from
+    # the endline than the six-yard box extended.
+    # left
     x1 = cfg["origin_x"] + cfg["length"] - cfg["penalty_box_length"]
     x2 = cfg["origin_x"] + cfg["length"] - cfg["six_yard_box_length"] - 2
     y1 = m - cfg["penalty_box_width"] / 2
     y2 = m - cfg["six_yard_box_width"] / 2
     zone_left = (x1, y1, x2, y2)
-    ## Right
+    # right
     x1 = cfg["origin_x"] + cfg["length"] - cfg["penalty_box_length"]
     x2 = cfg["origin_x"] + cfg["length"] - cfg["six_yard_box_length"] - 2
     y1 = m + cfg["six_yard_box_width"] / 2
     y2 = m + cfg["penalty_box_width"] / 2
     zone_right = (x1, y1, x2, y2)
     zones.append([zone_left, zone_right])
-    # Zone 5 includes the wide areas left and right in the eighteen yard box within the six-yard box extended.
-    ## Left
+    # Zone 5 includes the wide areas left and right in the eighteen yard box
+    # within the six-yard box extended.
+    # left
     x1 = cfg["origin_x"] + cfg["length"] - cfg["six_yard_box_length"] - 2
     x2 = cfg["origin_x"] + cfg["length"]
     y1 = m - cfg["penalty_box_width"] / 2
     y2 = m - cfg["six_yard_box_width"] / 2
     zone_left = (x1, y1, x2, y2)
-    ## Right
+    # right
     x1 = cfg["origin_x"] + cfg["length"] - cfg["six_yard_box_length"] - 2
     x2 = cfg["origin_x"] + cfg["length"]
     y1 = m + cfg["six_yard_box_width"] / 2
@@ -667,13 +688,13 @@ def _caley_shot_matrix(cfg=_spadl_cfg):
     y2 = cfg["origin_y"] + cfg["width"]
     zones.append([(x1, y1, x2, y2)])
     # Zone 8 comprises the regions right and left of the box.
-    ## Left
+    # left
     x1 = cfg["origin_x"] + cfg["length"] - 32
     x2 = cfg["origin_x"] + cfg["length"]
     y1 = cfg["origin_y"] + cfg["width"]
     y2 = m + cfg["penalty_box_width"] / 2
     zone_left = (x1, y1, x2, y2)
-    ## Right
+    # right
     x1 = cfg["origin_x"] + cfg["length"] - 32
     x2 = cfg["origin_x"] + cfg["length"]
     y1 = cfg["origin_y"]
@@ -929,7 +950,7 @@ def statsbomb_free_projection(events, shot_mask):
     corner2 = [120, 80]
     goal = [36, 44]
     for idx, shot in events.loc[shot_mask].iterrows():
-        if not "shot" in shot.extra or not "freeze_frame" in shot.extra["shot"]:
+        if "shot" not in shot.extra or "freeze_frame" not in shot.extra["shot"]:
             # No freeze frame data available for this shot
             continue
         freeze_frame = shot.extra["shot"]["freeze_frame"]
@@ -994,7 +1015,7 @@ def statsbomb_goalkeeper_position(events, shot_mask):
     """
     output = {}
     for idx, shot in events.loc[shot_mask].iterrows():
-        if not "shot" in shot.extra or not "freeze_frame" in shot.extra["shot"]:
+        if "shot" not in shot.extra or "freeze_frame" not in shot.extra["shot"]:
             # No freeze frame data available for this shot
             continue
         freeze_frame = shot.extra["shot"]["freeze_frame"]
@@ -1078,7 +1099,7 @@ def statsbomb_defenders_position(events, shot_mask):
     left_post = (_spadl_cfg["length"], _spadl_cfg["width"] / 2 - _spadl_cfg["goal_width"] / 2)
     right_post = (_spadl_cfg["length"], _spadl_cfg["width"] / 2 + _spadl_cfg["goal_width"] / 2)
     for idx, shot in events.loc[shot_mask].iterrows():
-        if not "shot" in shot.extra or not "freeze_frame" in shot.extra["shot"]:
+        if "shot" not in shot.extra or "freeze_frame" not in shot.extra["shot"]:
             # No freeze frame data available for this shot
             continue
         freeze_frame = shot.extra["shot"]["freeze_frame"]
@@ -1100,7 +1121,7 @@ def statsbomb_defenders_position(events, shot_mask):
             behind_ball.append(defender_x > ball_x)
         output[idx] = {
             "dist_to_defender": min(distances, default=float("inf")),
-            "under_pressure": shot.under_pressure == True,
+            "under_pressure": shot.under_pressure,
             "nb_defenders_in_shot_line": sum(in_shot_line),
             "nb_defenders_behind_ball": sum(behind_ball),
             "one_on_one": (
@@ -1116,7 +1137,7 @@ def statsbomb_defenders_position(events, shot_mask):
 
 
 @ftype("events")
-def statsbomb_assist(events, shot_mask):
+def statsbomb_assist(events, shot_mask):  # noqa: C901
     """Get features describing the assist.
 
     The following features are computed:
@@ -1150,7 +1171,7 @@ def statsbomb_assist(events, shot_mask):
     """
     output = {}
     for event_id, shot in events.loc[shot_mask].iterrows():
-        if not "shot" in shot.extra or not "key_pass_id" in shot.extra["shot"]:
+        if "shot" not in shot.extra or "key_pass_id" not in shot.extra["shot"]:
             # No assist for this shot
             continue
         assist = events.loc[shot.extra["shot"]["key_pass_id"]]
@@ -1269,7 +1290,7 @@ def statsbomb_shot_impact_height(events, shot_mask):
     # but we can use body part and technique as a proxy for this
     output = {}
     for idx, shot in events.loc[shot_mask].iterrows():
-        if not "shot" in shot.extra or not "technique" in shot.extra["shot"]:
+        if "shot" not in shot.extra or "technique" not in shot.extra["shot"]:
             # No freeze frame data available for this shot
             continue
         height = "ground"
@@ -1403,7 +1424,7 @@ def compute_attributes(
             elif getattr(fn, "ftype", None) == "events":
                 attrs.append(fn(events, shot_events_idx))
             else:
-                warnings.warn("Unknown attribute type for {}.".format(fn.__name__))
+                warnings.warn("Unknown attribute type for {}.".format(fn.__name__), stacklevel=2)
         attrs = pd.concat(attrs, axis=1).loc[shot_events_idx].set_index(shot_actions_idx)
         attrs.index.name = "action_id"
         # fill missing values
