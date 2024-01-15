@@ -9,7 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import check_cv
 from sklearn.preprocessing import LabelBinarizer, label_binarize
 from sklearn.svm import LinearSVC
-from sklearn.utils import check_X_y, column_or_1d, indexable
+from sklearn.utils import check_X_y, column_or_1d, indexable, check_consistent_length
 from sklearn.utils.validation import check_is_fitted
 
 
@@ -646,4 +646,4 @@ def _check_binary_probabilistic_predictions(y_true, y_prob):
     if y_prob.min() < 0:
         raise ValueError('y_prob contains values less than 0.')
 
-    return label_binarize(y_true, labels)[:, 0]
+    return label_binarize(y_true, classes=labels)[:, 0]
