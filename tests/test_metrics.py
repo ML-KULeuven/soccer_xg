@@ -3,10 +3,6 @@ import pytest
 
 import soccer_xg.metrics as metrics_lib
 
-#
-# expected_calibration_error
-#
-
 
 def test_expected_calibration_error():
     np.random.seed(1)

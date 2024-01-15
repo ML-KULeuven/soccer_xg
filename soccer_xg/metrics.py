@@ -55,7 +55,7 @@ def expected_calibration_error(y_true, y_prob, n_bins=5, strategy='uniform'):
     """
 
     if y_prob.shape != y_true.shape:
-        raise ValueError(f'Shapes must match')
+        raise ValueError('Shapes must match')
     if y_prob.min() < 0 or y_prob.max() > 1:
         raise ValueError('y_prob has values outside [0, 1].')
     labels = np.unique(y_true)
@@ -123,6 +123,7 @@ def bayesian_calibration_curve(y_true, y_pred, n_bins=100):
     number_total : ndarray of shape (n_bins,)
         The number of examples in each bin.
     """
+    y_pred = np.array(y_pred)
     y_true = np.array(y_true, dtype=bool)
     bandwidth = 1 / n_bins
     kde_pos = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(
@@ -154,6 +155,6 @@ def max_deviation(sample_probabilities, predicted_pos_percents):
 
 
 def residual_area(sample_probabilities, predicted_pos_percents):
-    """Compute the total area under the curve of |predicted prob - expected prob|"""
+    """Compute the total area under the curve of |predicted prob - expected prob|."""
     abs_deviations = np.abs(predicted_pos_percents - sample_probabilities)
     return integrate.trapz(abs_deviations, sample_probabilities)
