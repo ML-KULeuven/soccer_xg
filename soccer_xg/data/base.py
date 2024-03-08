@@ -27,21 +27,33 @@ class Dataset(ABC):
         """Import data."""
         # Retrieve all available competitions
         competitions = data_loader.competitions()
-        if competition_id is not None:
-            competitions = competitions.loc[competitions.competition_id == competition_id]
-        if season_id is not None:
-            competitions = competitions.loc[competitions.season_id == season_id]
 
         # Store competitions
-        self._import_competitions(competitions)
+        if competitions.empty and competition_id is not None and season_id is not None:
+            warnings.warn("No competition data was found.", stacklevel=2)
+            games = data_loader.games(competition_id, season_id)
+        elif competitions.empty:
+            raise ValueError(
+                "No competitions were found for the given criteria. "
+                "If no data about available competions is available, "
+                "you can load invididual seasons by providing "
+                "both a competition and season id."
+            )
+        else:
+            if competition_id is not None:
+                competitions = competitions.loc[competitions.competition_id == competition_id]
+            if season_id is not None:
+                competitions = competitions.loc[competitions.season_id == season_id]
 
-        # Retrieve games from all selected competitions
-        games = pd.concat(
-            [
-                data_loader.games(row.competition_id, row.season_id)
-                for row in competitions.itertuples()
-            ]
-        )
+            self._import_competitions(competitions)
+
+            # Retrieve games from all selected competitions
+            games = pd.concat(
+                [
+                    data_loader.games(row.competition_id, row.season_id)
+                    for row in competitions.itertuples()
+                ]
+            )
         if game_id is not None:
             games = games.loc[games.game_id == game_id]
         if games.empty:
@@ -62,6 +74,8 @@ class Dataset(ABC):
                 self._import_games(games.loc[games.game_id == game.game_id])
             except FileNotFoundError:
                 warnings.warn(f"Game {game.game_id} not found. Skipping.", stacklevel=2)
+            except Exception as e:
+                warnings.warn(f"Error parsing game {game.game_id}: {e}. Skipping.", stacklevel=2)
 
         # Store teams
         self._import_teams(pd.concat(teams))
