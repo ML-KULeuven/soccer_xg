@@ -1,5 +1,5 @@
 from scipy.stats.distributions import randint, uniform
-from sklearn.neural_network import MLPClassifier, MLPRegressor
+from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 
 from .preprocessing import simple_proc_for_linear_algoritms
@@ -21,55 +21,6 @@ def mlp_gridsearch_classifier(
     `categoric_features` : The list of categoric features
     `learning_rate` : The learning rate
     """
-
-    return _mlp_gridsearch_model(
-        'classification',
-        numeric_features,
-        categoric_features,
-        learning_rate,
-        use_dask,
-        n_iter,
-        scoring,
-    )
-
-
-def mlp_gridsearch_regressor(
-    numeric_features,
-    categoric_features,
-    learning_rate=0.08,
-    use_dask=False,
-    n_iter=100,
-    scoring='roc_auc',
-):
-    """
-    Simple regression pipeline using hyperband to optimize mlp hyper-parameters
-    Parameters
-    ----------
-    `numeric_features` : The list of numeric features
-    `categoric_features` : The list of categoric features
-    `learning_rate` : The learning rate
-    """
-
-    return _mlp_gridsearch_model(
-        'regression',
-        numeric_features,
-        categoric_features,
-        learning_rate,
-        use_dask,
-        n_iter,
-        scoring,
-    )
-
-
-def _mlp_gridsearch_model(
-    task,
-    numeric_features,
-    categoric_features,
-    learning_rate,
-    use_dask,
-    n_iter,
-    scoring,
-):
     param_space = {
         'clf__hidden_layer_sizes': [
             (24,),
@@ -84,11 +35,7 @@ def _mlp_gridsearch_model(
         'clf__learning_rate': ['constant', 'adaptive'],
     }
 
-    model = (
-        MLPClassifier(learning_rate_init=learning_rate)
-        if task == 'classification'
-        else MLPRegressor(learning_rate_init=learning_rate)
-    )
+    model = MLPClassifier(learning_rate_init=learning_rate)
 
     pipe = Pipeline(
         [

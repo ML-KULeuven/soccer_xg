@@ -7,9 +7,9 @@ from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin, clone
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import check_cv
-from sklearn.preprocessing import LabelBinarizer, label_binarize
+from sklearn.preprocessing import LabelBinarizer
 from sklearn.svm import LinearSVC
-from sklearn.utils import check_X_y, column_or_1d, indexable, check_consistent_length
+from sklearn.utils import column_or_1d, indexable
 from sklearn.utils.validation import check_is_fitted
 
 
@@ -93,7 +93,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         self.score_type = score_type
 
     def fit(self, X, y, sample_weight=None):
-        """Fit the calibrated model
+        """Fit the calibrated model.
 
         Parameters
         ----------
@@ -187,7 +187,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         return self
 
     def predict_proba(self, X):
-        """Posterior probabilities of classification
+        """Posterior probabilities of classification.
 
         This function returns posterior probabilities of classification
         according to each class on an array of test vectors X.
@@ -217,7 +217,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         return mean_proba
 
     def calibrate_scores(self, df):
-        """Posterior probabilities of classification
+        """Posterior probabilities of classification.
 
         This function returns posterior probabilities of classification
         according to each class on an array of test vectors X.
@@ -246,8 +246,9 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         return mean_proba
 
     def predict(self, X):
-        """Predict the target of new samples. Can be different from the
-        prediction of the uncalibrated classifier.
+        """Predict the target of new samples.
+
+        Can be different from the prediction of the uncalibrated classifier.
 
         Parameters
         ----------
@@ -336,7 +337,7 @@ class _CalibratedClassifier:
         return df, idx_pos_class
 
     def fit(self, X, y, sample_weight=None):
-        """Calibrate the fitted model
+        """Calibrate the fitted model.
 
         Parameters
         ----------
@@ -425,7 +426,7 @@ class _CalibratedClassifier:
         return proba
 
     def calibrate_scores(self, df):
-        """Posterior probabilities of classification
+        """Posterior probabilities of classification.
 
         This function returns posterior probabilities of classification
         according to each class on an array of test vectors X.
@@ -522,15 +523,15 @@ class _SigmoidCalibration(BaseEstimator, RegressorMixin):
 
 
 class _DummyCalibration(BaseEstimator, RegressorMixin):
-    """Dummy regression model. The purpose of this class is to give
+    """Dummy regression model.
+
+    The purpose of this class is to give
     the CalibratedClassifierCV class the option to just return the
     probabilities of the base classifier.
-
-
     """
 
     def fit(self, X, y, sample_weight=None):
-        """Does nothing.
+        """Do nothing.
 
         Parameters
         ----------
@@ -564,86 +565,3 @@ class _DummyCalibration(BaseEstimator, RegressorMixin):
             The predicted data.
         """
         return T
-
-
-def calibration_curve(y_true, y_prob, normalize=False, n_bins=5):
-    """Compute true and predicted probabilities for a calibration curve.
-
-    Read more in the :ref:`User Guide <calibration>`.
-
-    Parameters
-    ----------
-    y_true : array, shape (n_samples,)
-        True targets.
-
-    y_prob : array, shape (n_samples,)
-        Probabilities of the positive class.
-
-    normalize : bool, optional, default=False
-        Whether y_prob needs to be normalized into the bin [0, 1], i.e. is not
-        a proper probability. If True, the smallest value in y_prob is mapped
-        onto 0 and the largest one onto 1.
-
-    n_bins : int
-        Number of bins. A bigger number requires more data.
-
-    Returns
-    -------
-    prob_true : array, shape (n_bins,)
-        The true probability in each bin (fraction of positives).
-
-    prob_pred : array, shape (n_bins,)
-        The mean predicted probability in each bin.
-
-    References
-    ----------
-    Alexandru Niculescu-Mizil and Rich Caruana (2005) Predicting Good
-    Probabilities With Supervised Learning, in Proceedings of the 22nd
-    International Conference on Machine Learning (ICML).
-    See section 4 (Qualitative Analysis of Predictions).
-    """
-    y_true = column_or_1d(y_true)
-    y_prob = column_or_1d(y_prob)
-
-    if normalize:  # Normalize predicted values into interval [0, 1]
-        y_prob = (y_prob - y_prob.min()) / (y_prob.max() - y_prob.min())
-    elif y_prob.min() < 0 or y_prob.max() > 1:
-        raise ValueError('y_prob has values outside [0, 1] and normalize is ' 'set to False.')
-
-    y_true = _check_binary_probabilistic_predictions(y_true, y_prob)
-
-    bins = np.linspace(0.0, 1.0 + 1e-8, n_bins + 1)
-    binids = np.digitize(y_prob, bins) - 1
-
-    bin_sums = np.bincount(binids, weights=y_prob, minlength=len(bins))
-    bin_true = np.bincount(binids, weights=y_true, minlength=len(bins))
-    bin_total = np.bincount(binids, minlength=len(bins))
-
-    zero = bin_total == 0
-    bin_total[zero] = 2
-    # nonzero = bin_total != 0
-
-    prob_true = bin_true / bin_total
-    prob_pred = bin_sums / bin_total
-
-    return prob_true, prob_pred
-
-
-def _check_binary_probabilistic_predictions(y_true, y_prob):
-    """Check that y_true is binary and y_prob contains valid probabilities"""
-    check_consistent_length(y_true, y_prob)
-
-    labels = np.unique(y_true)
-
-    if len(labels) != 2:
-        raise ValueError(
-            'Only binary classification is supported. ' 'Provided labels %s.' % labels
-        )
-
-    if y_prob.max() > 1:
-        raise ValueError('y_prob contains values greater than 1.')
-
-    if y_prob.min() < 0:
-        raise ValueError('y_prob contains values less than 0.')
-
-    return label_binarize(y_true, classes=labels)[:, 0]

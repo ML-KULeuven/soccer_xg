@@ -1,7 +1,10 @@
+"""Utility functions."""
 import math
 
 import pandas as pd
 from fuzzywuzzy import fuzz
+
+from .data import Dataset
 
 
 def match_name(name, list_names, min_score=0):
@@ -31,9 +34,7 @@ def map_names(
 ):
     # List for dicts for easy dataframe creation
     dict_list = []
-    for _, (id, name) in df1[
-        [df1_output_colname, df1_match_colname]
-    ].iterrows():
+    for _, (id, name) in df1[[df1_output_colname, df1_match_colname]].iterrows():
         # Use our method to find best match, we can set a threshold here
         match = match_name(name, df2[df2_match_colname], threshold)
         # New dict for storing data
@@ -43,11 +44,7 @@ def map_names(
         if match[1] > threshold:
             dict_.update({'df2_name': match[0]})
             dict_.update(
-                {
-                    'df2_id': df2.loc[
-                        df2[df2_match_colname] == match[0], df2_output_colname
-                    ].iloc[0]
-                }
+                {'df2_id': df2.loc[df2[df2_match_colname] == match[0], df2_output_colname].iloc[0]}
             )
         else:
             dict_.update({'df2_name': 'unknown'})
@@ -133,25 +130,21 @@ def get_matching_shot(
     # Get shots that happened around the same time
     ts = shot.time_seconds
     best_match = other_shots_by_player_in_period.iloc[
-        (other_shots_by_player_in_period['time_seconds'] - ts)
-        .abs()
-        .argsort()[:1]
+        (other_shots_by_player_in_period['time_seconds'] - ts).abs().argsort()[:1]
     ].iloc[0]
     if abs(ts - best_match.time_seconds) < 3:
         return best_match
     return None
 
 
-def sample_temporal(dataset, size_val=0.0, size_test=0.2):
+def sample_temporal(
+    dataset: Dataset, size_val: float = 0.0, size_test: float = 0.2
+) -> tuple[list[int], list[int], list[int]]:
     game_ids = dataset.games().sort_values(by='game_date').index.values
     nb_games = len(game_ids)
-    games_train = game_ids[
-        0 : math.floor((1 - size_val - size_test) * nb_games)
-    ]
+    games_train = game_ids[0 : math.floor((1 - size_val - size_test) * nb_games)]
     games_val = game_ids[
-        math.ceil((1 - size_val - size_test) * nb_games) : math.floor(
-            (1 - size_test) * nb_games
-        )
+        math.ceil((1 - size_val - size_test) * nb_games) : math.floor((1 - size_test) * nb_games)
     ]
     games_test = game_ids[math.ceil((1 - size_test) * nb_games) + 1 : -1]
     return games_train, games_val, games_test

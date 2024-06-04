@@ -6,70 +6,32 @@ from soccer_xg.ml.preprocessing import simple_proc_for_linear_algoritms
 
 
 def logreg_gridsearch_classifier(
-    numeric_features,
-    categoric_features,
-    learning_rate=0.08,
-    use_dask=False,
-    n_iter=100,
-    scoring='roc_auc',
+    numeric_features: list[str],
+    categoric_features: list[str],
+    learning_rate: float | str | None = 0.08,
+    use_dask: bool = False,
+    n_iter: int = 100,
+    scoring: str = 'roc_auc',
 ):
-    """
-    Simple classification pipeline using hyperband to optimize logreg hyper-parameters
+    """Simple classification pipeline using random search to optimize logreg hyper-parameters.
+
     Parameters
     ----------
-    `numeric_features` : The list of numeric features
-    `categoric_features` : The list of categoric features
-    `learning_rate` : The learning rate
+    numeric_features : list(str)
+        The list of numeric features
+    categoric_features : list(str)
+        The list of categoric features
+    learning_rate : float
+        The learning rate. If None, a sklearn.linear_model.LogisticRegression is used.
+        Otherwise, a sklearn.linear_model.SGDClassifier is used.
+    use_dask : bool
+        If True, use dask for parallelizing a grid search over the hyper-parameters.
+
+    Returns
+    -------
+    sklearn.model_selection.RandomizedSearchCV
+        The classifier with the best hyper-parameters found by the random search.
     """
-
-    return _logreg_gridsearch_model(
-        'classification',
-        numeric_features,
-        categoric_features,
-        learning_rate,
-        use_dask,
-        n_iter,
-        scoring,
-    )
-
-
-def logreg_gridsearch_regressor(
-    numeric_features,
-    categoric_features,
-    learning_rate=0.08,
-    use_dask=False,
-    n_iter=100,
-    scoring='roc_auc',
-):
-    """
-    Simple regression pipeline using hyperband to optimize logreg hyper-parameters
-    Parameters
-    ----------
-    `numeric_features` : The list of numeric features
-    `categoric_features` : The list of categoric features
-    `learning_rate` : The learning rate
-    """
-
-    return _logreg_gridsearch_model(
-        'regression',
-        numeric_features,
-        categoric_features,
-        learning_rate,
-        use_dask,
-        n_iter,
-        scoring,
-    )
-
-
-def _logreg_gridsearch_model(
-    task,
-    numeric_features,
-    categoric_features,
-    learning_rate,
-    use_dask,
-    n_iter,
-    scoring,
-):
     if learning_rate is None:
         param_space = {
             'clf__C': np.logspace(-5, 5, 100),
@@ -87,7 +49,7 @@ def _logreg_gridsearch_model(
         model = SGDClassifier(
             learning_rate=learning_rate_schedule,
             eta0=eta0,
-            loss='log',
+            loss='log_loss',
             max_iter=10000,
             fit_intercept=False,
         )

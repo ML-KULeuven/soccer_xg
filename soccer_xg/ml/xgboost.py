@@ -13,63 +13,17 @@ def xgboost_gridsearch_classifier(
     n_iter=100,
     scoring='roc_auc',
 ):
-    """
-    Simple classification pipeline using hyperband to optimize xgboost hyper-parameters
+    """Simple classification pipeline using random search to optimize xgboost hyper-parameters.
+
     Parameters
     ----------
     `numeric_features` : The list of numeric features
     `categoric_features` : The list of categoric features
     `learning_rate` : The learning rate
+    `use_dask` : Whether to use dask or not
+    `n_iter` : The number of iterations for the random search
+    `scoring` : The scoring function to use
     """
-
-    return _xgboost_gridsearch_model(
-        'classification',
-        numeric_features,
-        categoric_features,
-        learning_rate,
-        use_dask,
-        n_iter,
-        scoring,
-    )
-
-
-def xgboost_gridsearch_regressor(
-    numeric_features,
-    categoric_features,
-    learning_rate=0.08,
-    use_dask=False,
-    n_iter=100,
-    scoring='roc_auc',
-):
-    """
-    Simple regression pipeline using hyperband to optimize xgboost hyper-parameters
-    Parameters
-    ----------
-    `numeric_features` : The list of numeric features
-    `categoric_features` : The list of categoric features
-    `learning_rate` : The learning rate
-    """
-
-    return _xgboost_gridsearch_model(
-        'regression',
-        numeric_features,
-        categoric_features,
-        learning_rate,
-        use_dask,
-        n_iter,
-        scoring,
-    )
-
-
-def _xgboost_gridsearch_model(
-    task,
-    numeric_features,
-    categoric_features,
-    learning_rate,
-    use_dask,
-    n_iter,
-    scoring,
-):
     param_space = {
         'clf__max_depth': randint(2, 11),
         'clf__min_child_weight': randint(1, 11),
@@ -83,11 +37,7 @@ def _xgboost_gridsearch_model(
         'clf__scale_pos_weight': uniform(0.1, 9.9),
     }
 
-    model = (
-        xgbsk.XGBClassifier(learning_rate=learning_rate)
-        if task == 'classification'
-        else xgbsk.XGBRegressor(learning_rate=learning_rate)
-    )
+    model = xgbsk.XGBClassifier(learning_rate=learning_rate)
 
     pipe = Pipeline(
         [

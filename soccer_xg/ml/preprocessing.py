@@ -19,7 +19,6 @@ def simple_proc_for_tree_algoritms(numeric_features, categoric_features):
     numpipe = make_pipeline(
         ColumnsSelector(numeric_features),
         SimpleImputer(strategy='mean'),
-        StandardScaler(),
     )
     if numeric_features and categoric_features:
         return make_union(catpipe, numpipe)
@@ -45,7 +44,7 @@ def simple_proc_for_linear_algoritms(numeric_features, categoric_features):
     numpipe = make_pipeline(
         ColumnsSelector(numeric_features),
         SimpleImputer(strategy='mean'),
-        StandardScaler(),
+        # StandardScaler(),
     )
     if numeric_features and categoric_features:
         return make_union(catpipe, numpipe)

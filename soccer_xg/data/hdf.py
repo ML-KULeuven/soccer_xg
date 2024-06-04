@@ -133,7 +133,7 @@ class HDFDataset(Dataset, pd.HDFStore):
                 raise IndexError(f"No game found with ID={game_id}")
         else:
             players = self["player_games"]
-            cols = ["team_id", "player_id", "player_name", "nickname"]
+            cols = ["team_id", "player_id", "player_name"]
             return players[cols].drop_duplicates().set_index(["player_id"])
 
     def events(self, game_id: int) -> pd.DataFrame:

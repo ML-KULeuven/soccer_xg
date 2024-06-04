@@ -22,7 +22,7 @@ events
    a :class:`pandas.DataFrame` of events and a series with event IDs to select
    the shots for which attributes should be computed.
 
-The types are specified using the ``ftype`` decorator. Only functions, which
+The types are specified using the ``feature`` decorator. Only functions, which
 have a parameter called "ftype" are seen by soccer-xg as a generator. Others
 will not be calculated.
 
@@ -32,13 +32,13 @@ SoccerAction library.
 """
 import math
 import warnings
+from typing import Callable
 
 import numpy as np
 import pandas as pd
-
-from socceraction import spadl
 import socceraction.spadl.config as spadlcfg
 import socceraction.vaep.features as fs
+from socceraction import spadl
 from socceraction.vaep.features import simple
 
 _spadl_cfg = {
@@ -56,14 +56,43 @@ _spadl_cfg = {
     "circle_radius": 9.15,
 }
 
+# Typing
+Events = pd.DataFrame
+Actions = pd.DataFrame
+GameStates = list[Actions]
+GameStateAttributeGenerator = Callable[[GameStates], pd.DataFrame]
+ActionsAttributeGenerator = Callable[[Actions, pd.Series], pd.DataFrame]
+EventsAttributeGenerator = Callable[[Events, pd.Series], pd.DataFrame]
+AttributeGenerator = (
+    EventsAttributeGenerator | ActionsAttributeGenerator | GameStateAttributeGenerator
+)
 
-def ftype(value):
-    """
-    This method returns a decorator that sets the property key of the function to value
-    """
+
+# Decorators
+
+_FEATURE_REGISTRY = {}
+_LABEL_REGISTRY = {}
+
+def feature(ftype, features=None):
+    """A decorator that sets the property 'ftype' of the function to value."""
 
     def decorate_func(func):
-        setattr(func, "ftype", value)
+        setattr(func, "ftype", ftype)
+        if features is not None:
+            for feature in features:
+                _FEATURE_REGISTRY[feature] = func
+        return func
+
+    return decorate_func
+
+def label(ftype, labels=None):
+    """A decorator that sets the property 'ftype' of the function to value."""
+
+    def decorate_func(func):
+        setattr(func, "ftype", ftype)
+        if labels is not None:
+            for label in labels:
+                _LABEL_REGISTRY[label] = func
         return func
 
     return decorate_func
@@ -73,50 +102,22 @@ def ftype(value):
 # SoccerAction-style gamestate attributes
 # ############################################################################
 
-actiontype = ftype("gamestates")(fs.actiontype)
-actiontype_onehot = ftype("gamestates")(fs.actiontype_onehot)
-result = ftype("gamestates")(fs.result)
-result_onehot = ftype("gamestates")(fs.result_onehot)
-actiontype_result_onehot = ftype("gamestates")(fs.actiontype_result_onehot)
-bodypart = ftype("gamestates")(fs.bodypart)
-bodypart_onehot = ftype("gamestates")(fs.bodypart_onehot)
-startlocation = ftype("gamestates")(fs.startlocation)
-endlocation = ftype("gamestates")(fs.endlocation)
-startpolar = ftype("gamestates")(fs.startpolar)
-endpolar = ftype("gamestates")(fs.endpolar)
-team = ftype("gamestates")(fs.team)
-movement = ftype("gamestates")(fs.movement)
-time_delta = ftype("gamestates")(fs.time_delta)
-space_delta = ftype("gamestates")(fs.space_delta)
-
-
-@ftype("gamestates")
-def speed(gamestates):
-    """Get the movement speed of the ball between the last and previous actions.
-
-    Parameters
-    ----------
-    gamestates : list(pd.DataFrame)
-        The game states of a game.
-
-    Returns
-    -------
-    pd.DataFrame
-        A dataframe with a column for the horizontal ('speedx_a0i'), vertical
-        ('speedy_a0i') and total ('speed_a0i') movement speed of the ball
-        between each <nb_prev_actions> action ai and action a0.
-    """
-    a0 = gamestates[0]
-    spaced = pd.DataFrame(index=a0.index)
-    for i, a in enumerate(gamestates[1:]):
-        dt = a0.time_seconds - a.time_seconds
-        dt[dt < 1] = 1
-        dx = a.end_x - a0.start_x
-        spaced["speedx_a0" + (str(i + 1))] = dx.abs() / dt
-        dy = a.end_y - a0.start_y
-        spaced["speedy_a0" + (str(i + 1))] = dy.abs() / dt
-        spaced["speed_a0" + (str(i + 1))] = np.sqrt(dx**2 + dy**2) / dt
-    return spaced
+actiontype = feature("gamestates")(fs.actiontype)
+actiontype_onehot = feature("gamestates")(fs.actiontype_onehot)
+result = feature("gamestates")(fs.result)
+result_onehot = feature("gamestates")(fs.result_onehot)
+actiontype_result_onehot = feature("gamestates")(fs.actiontype_result_onehot)
+bodypart = feature("gamestates", ["bodypart"])(fs.bodypart)
+bodypart_onehot = feature("gamestates")(fs.bodypart_onehot)
+startlocation = feature("gamestates")(fs.startlocation)
+endlocation = feature("gamestates")(fs.endlocation)
+startpolar = feature("gamestates")(fs.startpolar)
+endpolar = feature("gamestates")(fs.endpolar)
+team = feature("gamestates")(fs.team)
+movement = feature("gamestates")(fs.movement)
+time_delta = feature("gamestates")(fs.time_delta)
+space_delta = feature("gamestates")(fs.space_delta)
+speed = feature("gamestates")(fs.speed)
 
 
 # ############################################################################
@@ -124,7 +125,7 @@ def speed(gamestates):
 # ############################################################################
 
 
-@ftype("actions")
+@label("actions", ["goal"])
 def goal_from_shot(actions, shot_mask):
     """Determine whether a goal was scored from the current action.
 
@@ -150,7 +151,34 @@ def goal_from_shot(actions, shot_mask):
     return goaldf
 
 
-@ftype("actions")
+@feature("actions", ["type_name_shot"])
+def shot_type(actions, shot_mask):
+    """Compute the shot's action type.
+
+    Parameters
+    ----------
+    actions : pd.DataFrame
+        The actions of a game in SPADL format.
+    shot_mask : pd.Series
+        A boolean mask to select the shots for which attributes should be
+        computed.
+
+    Returns
+    -------
+    pd.DataFrame
+        A dataframe with a column for the shot's action type ('type_name_shot').
+    """
+    shots = actions.loc[shot_mask]
+    shottypedf = pd.DataFrame(index=shots.index)
+    shottypedf["type_name_shot"] = pd.Categorical(
+        shots["type_name"],
+        categories=["shot", "shot_penalty", "shot_freekick"],
+        ordered=False,
+    )
+    return shottypedf
+
+
+@feature("actions", ["dist_shot"])
 def shot_dist(actions, shot_mask):
     """Compute the distance to the middle of the goal.
 
@@ -176,7 +204,7 @@ def shot_dist(actions, shot_mask):
     return distdf
 
 
-@ftype("actions")
+@feature("actions", ["dx_shot", "dy_shot"])
 def shot_location(actions, shot_mask):
     """Compute the distance to the mid line and goal line.
 
@@ -204,7 +232,7 @@ def shot_location(actions, shot_mask):
     return locationdf
 
 
-@ftype("actions")
+@feature("actions", ["angle_shot"])
 def shot_angle(actions, shot_mask):
     """Compute the angle to the middle of the goal.
 
@@ -234,7 +262,7 @@ def shot_angle(actions, shot_mask):
     return polardf
 
 
-@ftype("actions")
+@feature("actions", ["visible_angle_shot"])
 def shot_visible_angle(actions, shot_mask):
     """Compute the angle formed between the shot location and the two goal posts.
 
@@ -280,7 +308,7 @@ def shot_visible_angle(actions, shot_mask):
     return angledf
 
 
-@ftype("actions")
+@feature("actions", ["relative_angle_shot"])
 def shot_relative_angle(actions, shot_mask):
     """Compute the relative angle to goal.
 
@@ -326,7 +354,7 @@ def shot_relative_angle(actions, shot_mask):
     return angledf[["relative_angle_shot"]]
 
 
-@ftype("actions")
+@feature("actions", ["bodypart_name_shot"])
 def shot_bodypart(actions, shot_mask):
     """Return the body part used to take the shot.
 
@@ -354,7 +382,7 @@ def shot_bodypart(actions, shot_mask):
     return bodypartdf
 
 
-@ftype("actions")
+@feature("actions", ["detailed_bodypart_name_shot"])
 def shot_bodypart_detailed(actions, shot_mask):
     """Return the body part used to take the shot, distinguishing between
     the left and right foot.
@@ -375,13 +403,13 @@ def shot_bodypart_detailed(actions, shot_mask):
     """
     shots = actions.loc[shot_mask]
     bodypartdf = pd.DataFrame(index=shots.index)
-    bodypartdf["bodypart_name_shot"] = pd.Categorical(
+    bodypartdf["detailed_bodypart_name_shot"] = pd.Categorical(
         shots["bodypart_name"], categories=spadlcfg.bodyparts, ordered=False
     )
     return bodypartdf
 
 
-@ftype("actions")
+@feature("actions", [f"bodypart_{type_name}_shot" for type_name in spadlcfg.bodyparts])
 def shot_bodypart_onehot(actions, shot_mask):
     """Return the one-hot encoded body part used to take the shot.
 
@@ -412,7 +440,7 @@ def shot_bodypart_onehot(actions, shot_mask):
     return X
 
 
-@ftype("actions")
+@feature("actions", ["post_dribble", "carry_length"])
 def post_dribble(actions, shot_mask):
     """Compute features describing the dribble before the shot.
 
@@ -442,15 +470,16 @@ def post_dribble(actions, shot_mask):
     for idx in actions.loc[shot_mask].index:
         carry_length = 0
         maybe_carry = actions.loc[:idx].iloc[-1]
-        if maybe_carry.type_name == "dribble":
+        post_dribble = maybe_carry.type_name == "dribble"
+        if post_dribble:
             dx = maybe_carry.end_x - maybe_carry.start_x
             dy = maybe_carry.end_y - maybe_carry.start_y
             carry_length = math.sqrt(dx**2 + dy**2)
-        df[idx] = {"carry_length": carry_length}
+        df[idx] = {"carry_length": carry_length, "post_dribble": post_dribble}
     return pd.DataFrame.from_dict(df, orient="index")
 
 
-@ftype("actions")
+@feature("actions", ["type_name_assist"])
 def assist_type(actions, shot_mask):
     """Return the assist type.
 
@@ -504,11 +533,11 @@ def assist_type(actions, shot_mask):
         assist_type = assist.type_name if assist else "direct"
         # TODO (assist_technique): The technique for crosses one of straight,
         # inswinging, or out swinging and whether the pass was a through ball
-        df[idx] = {"type_assist": assist_type}
+        df[idx] = {"type_name_assist": assist_type}
     return pd.DataFrame.from_dict(df, orient="index")
 
 
-@ftype("actions")
+@feature("actions", ["fastbreak"])
 def fastbreak(actions, shot_mask):
     """Get whether the shot was part of a counter attack.
 
@@ -559,7 +588,7 @@ def fastbreak(actions, shot_mask):
     return pd.DataFrame.from_dict(df, orient="index")
 
 
-@ftype("actions")
+@feature("actions", ["rebound", "time_prev_shot"])
 def rebound(actions, shot_mask):
     """Get whether the shot was a rebound.
 
@@ -718,6 +747,33 @@ def _point_in_rect(rect):
 
 
 def triangular_grid(name, angle_bins, dist_bins, symmetrical=False):
+    """Get the location of a shot as a cell index from a triangular grid.
+
+    Paramters
+    ---------
+    name : str
+        Name of the feature.
+    angle_bins : list
+        A monotonically increasing array of bin edges for the angle of the
+        shot wrt the center of the goal, including the rightmost edge. In degrees.
+    dist_bins : list
+        A monotonically increasing array of bin edges for the distance of the
+        shot to the center of the goal, including the rightmost edge. In meters.
+    symmetrical : bool
+        Whether to use a symmetrical grid. Default: False.
+
+    Examples
+    --------
+    >>> shot_zone = feature("gamestates", ["shot_zone"])(
+    >>>     triangular_grid(
+    >>>         "shot_zone",
+    >>>         [-50, -20, 20, 50],
+    >>>         [2, 4, 8, 11, 16, 24, 34, 50],
+    >>>         symmetrical=True,
+    >>>     )
+    >>> )
+    """
+
     @simple
     def fn(actions):
         zonedf = startpolar(actions)
@@ -741,12 +797,39 @@ def triangular_grid(name, angle_bins, dist_bins, symmetrical=False):
     return fn
 
 
-def rectangular_grid(name, x_bins, y_bins, symmetrical=False, cfg=_spadl_cfg):
+def rectangular_grid(name, x_bins, y_bins, symmetrical=False):
+    """Get the location of a shot as a cell index from a rectangular grid.
+
+    Paramters
+    ---------
+    name : str
+        Name of the feature.
+    x_bins : list
+        A monotonically increasing array of bin edges for the length of the
+        pitch, including the rightmost edge. In degrees.
+    y_bins : list
+        A monotonically increasing array of bin edges for the width of the
+        pitch, including the rightmost edge. In meters.
+    symmetrical : bool
+        Whether to use a symmetrical grid. Default: False.
+
+    Examples
+    --------
+    >>> shot_zone = feature("gamestates", ["shot_zone"])(
+    >>>     rectangular_grid(
+    >>>         "shot_zone",
+    >>>         np.arange(0, 105, 2),
+    >>>         np.arange(0, 68, 2),
+    >>>         symmetrical=False,
+    >>>     )
+    >>> )
+    """
+
     @simple
     def fn(actions):
         zonedf = actions[["start_x", "start_y"]].copy()
         if symmetrical:
-            m = (cfg["origin_y"] + cfg["width"]) / 2
+            m = (_spadl_cfg["origin_y"] + _spadl_cfg["width"]) / 2
             zonedf.loc[zonedf.start_y > m, "start_y"] -= m
         x_bin = np.digitize(zonedf.start_x, x_bins)
         y_bin = np.digitize(zonedf.start_y, y_bins)
@@ -762,6 +845,26 @@ def rectangular_grid(name, x_bins, y_bins, symmetrical=False, cfg=_spadl_cfg):
 
 
 def custom_grid(name, zones, is_in_zone):
+    """Get the location of a shot as a cell index from a custom grid.
+
+    Paramters
+    ---------
+    name : str
+        Name of the feature.
+    zones : list
+    is_in_zone : callable
+
+    Examples
+    --------
+    >>> shot_zone = feature("gamestates", ["shot_zone"])(
+    >>>     custom_grid(
+    >>>         "shot_zone",
+    >>>         _caley_shot_matrix(),
+    >>>         _point_in_rect,
+    >>>     )
+    >>> )
+    """
+
     @simple
     def fn(actions):
         zonedf = actions[["start_x", "start_y"]].copy()
@@ -786,7 +889,7 @@ def custom_grid(name, zones, is_in_zone):
     return fn
 
 
-caley_grid = ftype("gamestates")(custom_grid("caley_zone", _caley_shot_matrix(), _point_in_rect))
+caley_grid = feature("gamestates", ["caley_zone"])(custom_grid("caley_zone", _caley_shot_matrix(), _point_in_rect))
 
 # ############################################################################
 # StatsBomb-specific attributes
@@ -857,7 +960,7 @@ def _is_inside_triangle(point, tri_points):
     return False
 
 
-@ftype("events")
+@feature("events", ["sb_open_goal"])
 def statsbomb_open_goal(events, shot_mask):
     """Get whether the shot was taken into an open goal.
 
@@ -879,13 +982,13 @@ def statsbomb_open_goal(events, shot_mask):
     output = {}
     for idx, shot in events.loc[shot_mask].iterrows():
         if "shot" in shot.extra:
-            output[idx] = {"open_goal": "open_goal" in shot.extra['shot']}
+            output[idx] = {"sb_open_goal": "open_goal" in shot.extra['shot']}
 
     output = pd.DataFrame.from_dict(output, orient="index")
     return output
 
 
-@ftype("events")
+@feature("events", ["sb_first_touch"])
 def statsbomb_first_touch(events, shot_mask):
     """Get whether the shot was a first-touch shot.
 
@@ -907,13 +1010,13 @@ def statsbomb_first_touch(events, shot_mask):
     output = {}
     for idx, shot in events.loc[shot_mask].iterrows():
         if "shot" in shot.extra:
-            output[idx] = {"first_touch": "first_time" in shot.extra['shot']}
+            output[idx] = {"sb_first_touch": "first_time" in shot.extra['shot']}
 
     output = pd.DataFrame.from_dict(output, orient="index")
     return output
 
 
-@ftype("events")
+@feature("events", ["sb_free_projection_gaps", "sb_free_projection_pct"])
 def statsbomb_free_projection(events, shot_mask):
     """Get the free projection area.
 
@@ -985,14 +1088,14 @@ def statsbomb_free_projection(events, shot_mask):
                         new_free_projection.append(projection)
                 free_projection = [p for p in new_free_projection if p[1] - p[0] > 0]
         output[idx] = {
-            "free_projection_gaps": len(free_projection),
-            "free_projection_pct": np.sum(np.diff(free_projection)) / np.diff(goal)[0],
+            "sb_free_projection_gaps": len(free_projection),
+            "sb_free_projection_pct": np.sum(np.diff(free_projection)) / np.diff(goal)[0],
         }
     output = pd.DataFrame.from_dict(output, orient="index")
     return output
 
 
-@ftype("events")
+@feature("events", ["sb_goalkeeper_x", "sb_goalkeeper_y", "sb_goalkeeper_dist_to_ball", "sb_goalkeeper_dist_to_goal", "sb_goalkeeper_angle_to_goal"])
 def statsbomb_goalkeeper_position(events, shot_mask):
     """Get the goalkeeper's position.
 
@@ -1049,17 +1152,17 @@ def statsbomb_goalkeeper_position(events, shot_mask):
         goalkeeper_dist_to_ball = math.sqrt(dx_kb**2 + dy_kb**2)
 
         output[idx] = {
-            "goalkeeper_x": goalkeeper_x,
-            "goalkeeper_y": goalkeeper_y,
-            "goalkeeper_dist_to_ball": goalkeeper_dist_to_ball,
-            "goalkeeper_dist_to_goal": goalkeeper_dist_to_goal,
-            "goalkeeper_angle_to_goal": goalkeeper_angle_to_goal,
+            "sb_goalkeeper_x": goalkeeper_x,
+            "sb_goalkeeper_y": goalkeeper_y,
+            "sb_goalkeeper_dist_to_ball": goalkeeper_dist_to_ball,
+            "sb_goalkeeper_dist_to_goal": goalkeeper_dist_to_goal,
+            "sb_goalkeeper_angle_to_goal": goalkeeper_angle_to_goal,
         }
     output = pd.DataFrame.from_dict(output, orient="index")
     return output
 
 
-@ftype("events")
+@feature("events", ["sb_dist_to_defender", "sb_under_pressure", "sb_nb_defenders_in_shot_line", "sb_nb_defenders_behind_ball", "sb_one_on_one"])
 def statsbomb_defenders_position(events, shot_mask):
     """Get features describing the position of the defending players.
 
@@ -1120,23 +1223,23 @@ def statsbomb_defenders_position(events, shot_mask):
             )
             behind_ball.append(defender_x > ball_x)
         output[idx] = {
-            "dist_to_defender": min(distances, default=float("inf")),
-            "under_pressure": shot.under_pressure,
-            "nb_defenders_in_shot_line": sum(in_shot_line),
-            "nb_defenders_behind_ball": sum(behind_ball),
-            "one_on_one": (
+            "sb_dist_to_defender": min(distances, default=float("inf")),
+            "sb_under_pressure": shot.under_pressure,
+            "sb_nb_defenders_in_shot_line": sum(in_shot_line),
+            "sb_nb_defenders_behind_ball": sum(behind_ball),
+            "sb_one_on_one": (
                 sum(behind_ball) == 0
                 and sum(in_shot_line) == 0
                 and shot.extra["shot"]["body_part"]["name"] in ["Left Foot", "Right Foot"]
             ),
         }
     output = pd.DataFrame.from_dict(output, orient="index")
-    output["one_on_one"] = output["one_on_one"].astype('boolean')
-    output["under_pressure"] = output["under_pressure"].astype('boolean')
+    output["sb_one_on_one"] = output["sb_one_on_one"].astype('boolean')
+    output["sb_under_pressure"] = output["sb_under_pressure"].astype('boolean')
     return output
 
 
-@ftype("events")
+@feature("events", ["sb_end_x_assist", "sb_end_y_assist", "sb_carry_dist", "sb_type_name_assist", "sb_height_assist"])
 def statsbomb_assist(events, shot_mask):  # noqa: C901
     """Get features describing the assist.
 
@@ -1145,7 +1248,7 @@ def statsbomb_assist(events, shot_mask):  # noqa: C901
         - end_y_assist: The assisting pass' y-coordinate
         - carry_dist: The distance between the end location of the assisting
           pass and the location of the shot.
-        - type_assist: The assist type, which is one of 'standard_pass',
+        - type_name_assist: The assist type, which is one of 'standard_pass',
           'free_kick', 'corner', 'throw_in', 'cross', 'cut_back' or 'through_ball'.
         - height_assist: The peak height of the assisting pass, which is one of
           'ground', 'low' (under shoulder level) or 'high' (above shoulder
@@ -1210,16 +1313,16 @@ def statsbomb_assist(events, shot_mask):  # noqa: C901
                 assist_height = m[assist.extra["pass"]["height"]["name"]]
 
         output[event_id] = {
-            "end_x_assist": assist_x,
-            "end_y_assist": assist_y,
-            "carry_dist": math.sqrt((shot_x - assist_x) ** 2 + (shot_y - assist_y) ** 2),
-            "type_assist": assist_type,
-            "height_assist": assist_height,
+            "sb_end_x_assist": assist_x,
+            "sb_end_y_assist": assist_y,
+            "sb_carry_dist": math.sqrt((shot_x - assist_x) ** 2 + (shot_y - assist_y) ** 2),
+            "sb_type_name_assist": assist_type,
+            "sb_height_assist": assist_height,
         }
 
     output = pd.DataFrame.from_dict(output, orient="index")
-    output["type_assist"] = pd.Categorical(
-        output["type_assist"],
+    output["sb_type_assist"] = pd.Categorical(
+        output["sb_type_name_assist"],
         categories=[
             "standard_pass",
             "free_kick",
@@ -1231,13 +1334,13 @@ def statsbomb_assist(events, shot_mask):  # noqa: C901
         ],
         ordered=False,
     )
-    output["height_assist"] = pd.Categorical(
-        output["height_assist"], categories=["ground", "low", "high"], ordered=True
+    output["sb_height_assist"] = pd.Categorical(
+        output["sb_height_assist"], categories=["ground", "low", "high"], ordered=True
     )
     return output
 
 
-@ftype("events")
+@feature("events", ["sb_from_counterattack"])
 def statsbomb_counterattack(events, shot_mask):
     """Get whether a shot was from a counterattack.
 
@@ -1259,14 +1362,14 @@ def statsbomb_counterattack(events, shot_mask):
     output = {}
     for idx, shot in events.loc[shot_mask].iterrows():
         output[idx] = {
-            "from_counterattack": shot.play_pattern_name == "From Counter",
+            "sb_from_counterattack": shot.play_pattern_name == "From Counter",
         }
 
     output = pd.DataFrame.from_dict(output, orient="index")
     return output
 
 
-@ftype("events")
+@feature("events", ["sb_impact_height"])
 def statsbomb_shot_impact_height(events, shot_mask):
     """Get the height of the ball when the shot was taken.
 
@@ -1307,41 +1410,23 @@ def statsbomb_shot_impact_height(events, shot_mask):
             height = "low"
         elif shot.extra["shot"]["technique"]["name"] == "Overhead Kick":
             height = "high"
-        output[idx] = {"impact_height": height}
+        output[idx] = {"sb_impact_height": height}
 
     output = pd.DataFrame.from_dict(output, orient="index")
-    output["impact_height"] = pd.Categorical(
-        output["impact_height"], categories=["ground", "low", "high"], ordered=True
+    output["sb_impact_height"] = pd.Categorical(
+        output["sb_impact_height"], categories=["ground", "low", "high"], ordered=True
     )
     return output
 
 
-default_features = [
-    actiontype,
-    bodypart,
-    result,
-    startlocation,
-    endlocation,
-    movement,
-    space_delta,
-    startpolar,
-    endpolar,
-    team,
-    time_delta,
-    speed,
-    shot_angle,
-    caley_grid,
-    ftype("gamestates")(
-        triangular_grid(
-            "angle_zone",
-            [-50, -20, 20, 50],
-            [2, 4, 8, 11, 16, 24, 34, 50],
-            symmetrical=True,
-        )
-    ),
+default_features : list[AttributeGenerator | str] = [
+    shot_type,
+    shot_location,
+    shot_dist,
+    shot_visible_angle,
 ]
 
-default_labels = [goal_from_shot]
+default_labels : list[AttributeGenerator | str] = [goal_from_shot]
 
 
 def compute_attributes(
@@ -1353,7 +1438,7 @@ def compute_attributes(
     shotfilter=None,
     nb_prev_actions=3,
 ):
-    """Extract xG features for a given game.
+    """Extract xG features and labels for a given game.
 
     Parameters
     ----------
@@ -1364,9 +1449,9 @@ def compute_attributes(
     events: pd.DataFrame
         A DataFrame containing the raw provider-specific events corresponding
         to ``actions``. Can be used to calculate provider-specific features.
-    xfns : list(callable)
+    xfns : list(callable or str)
         List of feature generators to apply. Defaults to ``default_features``.
-    yfns : list(callable)
+    yfns : list(callable or str)
         List of label generators to apply. Defaults to ``default_labels``.
     shotfilter: callable(pd.Series) -> bool
         A function that takes a shot (in SPADL format) and returns True if the
@@ -1396,11 +1481,11 @@ def compute_attributes(
     shot_events_idx = actions.loc[shot_mask, "original_event_id"]
 
     # handle inputs with no shots or no attributes
-    if shot_mask.sum() < 1:
+    if shot_mask.sum() == 0:
         # TODO: create the expected columns
-        return pd.DataFrame()
-    if len(xfns + yfns) < 1:
-        return pd.DataFrame(index=shot_actions_idx)
+        return pd.DataFrame(index=pd.Index([], name="action_id")), pd.DataFrame(index=pd.Index([], name="action_id"))
+    if len(xfns + yfns) == 0:
+        return pd.DataFrame(index=shot_actions_idx), pd.DataFrame(index=shot_actions_idx)
 
     # convert actions to ltr orientation
     actions_ltr = spadl.utils.play_left_to_right(actions, game.home_team_id)
@@ -1414,17 +1499,37 @@ def compute_attributes(
     shot_gamestates_ltr[0]["result_id"] = float("NaN")
 
     # compute features and labels
-    def _apply_fns(fns):
+    def _apply_fns(fns, registry):
         attrs = []
+        _fns = {}
         for fn in fns:
-            if getattr(fn, "ftype", None) == "gamestates":
-                attrs.append(fn(shot_gamestates_ltr).set_index(shot_events_idx))
-            elif getattr(fn, "ftype", None) == "actions":
-                attrs.append(fn(actions_ltr, shot_mask).set_index(shot_events_idx))
-            elif getattr(fn, "ftype", None) == "events":
-                attrs.append(fn(events, shot_events_idx))
+            if isinstance(fn, str):
+                if fn not in registry:
+                    raise ValueError(
+                       f"Unkown feature '{fn}'. Valid feature names are [{', '.join(registry)}]"
+                   )
+                _fn = registry[fn]
+                if _fn not in _fns:
+                    _fns[_fn] = [fn]
+                else:
+                    _fns[_fn].append(fn)
             else:
-                warnings.warn("Unknown attribute type for {}.".format(fn.__name__), stacklevel=2)
+                _fns[fn] = None
+        for fn, cols in _fns.items():
+            new_attrs = None
+            if getattr(fn, "ftype", None) == "gamestates":
+                new_attrs = fn(shot_gamestates_ltr).set_index(shot_events_idx)
+            elif getattr(fn, "ftype", None) == "actions":
+                new_attrs = fn(actions_ltr, shot_mask).set_index(shot_events_idx)
+            elif getattr(fn, "ftype", None) == "events":
+                new_attrs = fn(events, shot_events_idx)
+            else:
+                warnings.warn(f"Unknown attribute type for {fn.__name__}.", stacklevel=2)
+            if new_attrs is not None:
+                if cols is not None:
+                    attrs.append(new_attrs[cols])
+                else:
+                    attrs.append(new_attrs)
         attrs = pd.concat(attrs, axis=1).loc[shot_events_idx].set_index(shot_actions_idx)
         attrs.index.name = "action_id"
         # fill missing values
@@ -1434,7 +1539,14 @@ def compute_attributes(
         attrs.rename(columns=lambda s: s.replace("a0", "shot"), inplace=True)
         return attrs
 
-    X = _apply_fns(xfns)
-    y = _apply_fns(yfns)
+    X = _apply_fns(xfns, _FEATURE_REGISTRY) if len(xfns) > 0 else None
+    y = _apply_fns(yfns, _LABEL_REGISTRY) if len(yfns) > 0 else None
+
+    if X is None:
+        assert y is not None
+        X = pd.DataFrame(index=y.index)
+    if y is None:
+        assert X is not None
+        y = pd.DataFrame(index=X.index)
 
     return X, y

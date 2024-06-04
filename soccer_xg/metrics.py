@@ -1,7 +1,38 @@
 """A collection of metrics for evaluation xG models."""
+import warnings
+
 import numpy as np
 from scipy import integrate
 from sklearn.neighbors import KernelDensity
+from sklearn.preprocessing import label_binarize
+from sklearn.utils import check_consistent_length, column_or_1d
+
+
+def _check_binary_probabilistic_predictions(y_true, y_prob):
+    """Check that y_true is binary and y_prob contains valid probabilities"""
+    # convert to 1D numpy array
+    y_true = column_or_1d(y_true)
+    y_prob = column_or_1d(y_prob)
+
+    # check equal length
+    check_consistent_length(y_true, y_prob)
+
+    if y_prob.min() < 0 or y_prob.max() > 1:
+        warnings.warn(
+            "y_prob has values outside [0, 1] and normalize is set to False. "
+            "Probalities outside [0, 1] will be clipped."
+        )
+        y_prob = np.clip(y_prob, a_min=0, a_max=1)
+
+    # check if binary classification
+    labels = np.unique(y_true)
+    if len(labels) != 2:
+        raise ValueError(
+            'Only binary classification is supported. Provided labels %s.' % labels
+        )
+
+    return label_binarize(y_true, classes=labels)[:, 0], y_prob
+
 
 
 def expected_calibration_error(y_true, y_prob, n_bins=5, strategy='uniform'):
@@ -41,31 +72,21 @@ def expected_calibration_error(y_true, y_prob, n_bins=5, strategy='uniform'):
 
     References
     ----------
-    [1]: Chuan Guo, Geoff Pleiss, Yu Sun, Kilian Q. Weinberger,
-       On Calibration of Modern Neural Networks.
-       Proceedings of the 34th International Conference on Machine Learning
-       (ICML 2017).
-       arXiv:1706.04599
-       https://arxiv.org/pdf/1706.04599.pdf
-    [2]: Nixon, Jeremy, et al.,
-       Measuring calibration in deep learning.
-       arXiv:1904.01685
-       https://arxiv.org/abs/1904.01685
-
+    .. [1] Chuan Guo, Geoff Pleiss, Yu Sun, Kilian Q. Weinberger, On
+           Calibration of Modern Neural Networks. Proceedings of the 34th
+           International Conference on Machine Learning (ICML 2017).
+           arXiv:1706.04599 https://arxiv.org/pdf/1706.04599.pdf
+    .. [2] Nixon, Jeremy, et al., Measuring calibration in deep learning.
+           arXiv:1904.01685 https://arxiv.org/abs/1904.01685
     """
 
-    if y_prob.shape != y_true.shape:
-        raise ValueError('Shapes must match')
-    if y_prob.min() < 0 or y_prob.max() > 1:
-        raise ValueError('y_prob has values outside [0, 1].')
-    labels = np.unique(y_true)
-    if len(labels) > 2:
-        raise ValueError('Only binary classification is supported.')
+    y_true, y_prob = _check_binary_probabilistic_predictions(y_true, y_prob)
 
     if strategy == 'quantile':  # Determine bin edges by distribution of data
         quantiles = np.linspace(0, 1, n_bins + 1)
         bins = np.percentile(y_prob, quantiles * 100)
-        bins[-1] = bins[-1] + 1e-8
+        bins[0] = 0 - 1e-8
+        bins[-1] = 1 + 1e-8
     elif strategy == 'uniform':
         bins = np.linspace(0.0, 1.0 + 1e-8, n_bins + 1)
     else:
@@ -99,7 +120,93 @@ def _reliability(y_true, y_prob, bins):
     return accs, confs, counts
 
 
-def bayesian_calibration_curve(y_true, y_pred, n_bins=100):
+def calibration_curve(y_true, y_prob, bins=10, bin_strategy="uniform"):
+    """Compute true and predicted probabilities for a calibration curve.
+
+    Parameters
+    ----------
+    y_true : array (n_samples, )
+        Labels indicating the true class.
+    y_prob : array (n_samples, )
+        Output probability scores.
+    bins : int or list of floats
+        Number of bins to create in the scores' space, or list of bin
+        boundaries. More bins require more data.
+    bin_strategy : {'uniform', 'quantile'}, default='uniform'
+        Strategy used to define the widths of the bins.
+
+        uniform
+            The bins have identical widths.
+        quantile
+            The bins have the same number of samples and depend on `y_prob`.
+
+    Returns
+    -------
+    avg_true : array, shape (n_bins,)
+        The true probability in each bin (fraction of positives).
+
+    avg_pred : array, shape (n_bins,)
+        The mean predicted probability in each bin.
+
+    bin_true : array, shape (n_bins,)
+        Number of true samples in each bin.
+
+    bin_total : array, shape (n_bins,)
+        Number of samples in each bin.
+
+    References
+    ----------
+    .. [1] Alexandru Niculescu-Mizil and Rich Caruana (2005) Predicting Good
+           Probabilities With Supervised Learning, in Proceedings of the 22nd
+           International Conference on Machine Learning (ICML).
+           See section 4 (Qualitative Analysis of Predictions).
+    """
+    y_true, y_prob = _check_binary_probabilistic_predictions(y_true, y_prob)
+
+    if isinstance(bins, int):
+        n_bins = bins
+        if bin_strategy == "quantile":  # Determine bin edges by distribution of data
+            quantiles = np.linspace(0, 1, n_bins + 1)
+            bins = np.percentile(y_prob, quantiles * 100)
+            bins[0] = 0 - 1e-8
+            bins[-1] = 1 + 1e-8
+        elif bin_strategy == "uniform":
+            bins = np.linspace(0, 1 + 1e-8, n_bins + 1)
+        else:
+            raise ValueError(
+                "Invalid entry to 'strategy' input. Strategy "
+                "must be either 'quantile' or 'uniform'."
+            )
+    elif isinstance(bins, list) or isinstance(bins, np.ndarray):
+        n_bins = len(bins) - 1
+        bins = np.array(bins)
+        if bins[0] == 0.0:
+            bins[0] = 0 - 1e-8
+        if bins[-1] == 1.0:
+            bins[-1] = 1 + 1e-8
+    else:
+        raise ValueError(
+            "Invalid entry to 'bins' input. The must be either "
+            "a list of bin boundaries or the number of bins."
+        )
+
+    bin_idx = np.digitize(y_prob, bins) - 1
+
+    bin_true = np.bincount(bin_idx, weights=y_true, minlength=n_bins)
+    bin_pred = np.bincount(bin_idx, weights=y_prob, minlength=n_bins)
+    bin_total = np.bincount(bin_idx, minlength=n_bins)
+
+    zero_idx = bin_total == 0
+    avg_true = np.empty(bin_total.shape[0])
+    avg_true.fill(np.nan)
+    avg_true[~zero_idx] = np.divide(bin_true[~zero_idx], bin_total[~zero_idx])
+    avg_pred = np.empty(bin_total.shape[0])
+    avg_pred.fill(np.nan)
+    avg_pred[~zero_idx] = np.divide(bin_pred[~zero_idx], bin_total[~zero_idx])
+    return avg_true, avg_pred, bin_true, bin_total
+
+
+def bayesian_calibration_curve(y_true, y_prob, n_bins=100):
     """Compute true and predicted probabilities for a calibration curve using
     kernel density estimation instead of bins with a fixed width.
 
@@ -115,21 +222,24 @@ def bayesian_calibration_curve(y_true, y_pred, n_bins=100):
 
     Returns
     -------
-    prob_true : ndarray of shape (n_bins,)
-        The proportion of samples whose class is the positive class, in each
-        bin (fraction of positives).
-    prob_pred : ndarray of shape (n_bins,)
+    avg_true : array, shape (n_bins,)
+        The true probability in each bin (fraction of positives).
+
+    avg_pred : array, shape (n_bins,)
         The mean predicted probability in each bin.
-    number_total : ndarray of shape (n_bins,)
-        The number of examples in each bin.
+
+    bin_true : array, shape (n_bins,)
+        Number of true samples in each bin.
+
+    bin_total : array, shape (n_bins,)
+        Number of samples in each bin.
     """
-    y_pred = np.array(y_pred)
-    y_true = np.array(y_true, dtype=bool)
+    y_true, y_prob = _check_binary_probabilistic_predictions(y_true, y_prob)
+    y_true = y_true.astype(bool)
+
     bandwidth = 1 / n_bins
-    kde_pos = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(
-        (y_pred[y_true])[:, np.newaxis]
-    )
-    kde_total = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(y_pred[:, np.newaxis])
+    kde_pos = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit((y_prob[y_true])[:, np.newaxis])
+    kde_total = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(y_prob[:, np.newaxis])
     sample_probabilities = np.linspace(0.01, 0.99, 99)
     number_density_offense_won = np.exp(
         kde_pos.score_samples(sample_probabilities[:, np.newaxis])
@@ -142,8 +252,9 @@ def bayesian_calibration_curve(y_true, y_pred, n_bins=100):
     predicted_pos_percents = np.nan_to_num(number_pos / number_total, 1)
 
     return (
-        100.0 * sample_probabilities,
-        100.0 * predicted_pos_percents,
+        predicted_pos_percents,
+        sample_probabilities,
+        number_pos,
         number_total,
     )
 

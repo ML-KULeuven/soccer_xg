@@ -306,3 +306,24 @@ class SVD_Embedding(TransformerMixin):
     def transform(self, X):
         row = self.rowle.transform(X[self.rowname])
         return self.embedding[row, :]
+
+
+class InteractionFeature(BaseEstimator, TransformerMixin):
+    def __init__(self, columns_to_multiply, new_column_name=None):
+        self.columns_to_multiply = columns_to_multiply
+        if new_column_name is None:
+            self.new_column_name = "_x_".join(columns_to_multiply)
+        else:
+            self.new_column_name = new_column_name
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_copy = X.copy()
+        X_copy[self.new_column_name] = X_copy[self.columns_to_multiply[0]]
+
+        for col in self.columns_to_multiply[1:]:
+            X_copy[self.new_column_name] *= X_copy[col]
+
+        return X_copy
